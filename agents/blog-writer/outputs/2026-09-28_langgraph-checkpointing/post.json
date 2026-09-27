@@ -1,0 +1,49 @@
+{
+  "title": "LangGraph Checkpointing: How to Resume an AI Agent After a Crash",
+  "slug": "langgraph-checkpointing",
+  "excerpt": "A timeout killed my five-step agent run and took every paid token with it. Here's how LangGraph checkpointing lets a crashed agent pick up exactly where it stopped, with tested code and the pitfalls that bit me.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "LangGraph Checkpointing",
+    "LangGraph",
+    "Resume AI Agent",
+    "Agent State Persistence",
+    "SqliteSaver",
+    "Durable Execution",
+    "Time Travel Debugging",
+    "AI Agents",
+    "AI agent debugging",
+    "AI Engineering"
+  ],
+  "focus_keyword": "langgraph checkpointing",
+  "seo_title": "LangGraph Checkpointing: Resume AI Agents After a Crash",
+  "meta_description": "Learn how LangGraph checkpointing saves agent state after every step, so a crashed run resumes where it stopped. Tested Python code, SQLite setup, pitfalls.",
+  "images": [
+    {
+      "key": "featured",
+      "file": "langgraph-checkpointing-resume-ai-agent-after-crash-v2.jpg",
+      "title": "LangGraph Checkpointing: Resume an AI Agent After a Crash",
+      "alt": "LangGraph checkpointing diagram: a timed-out agent node resumes from saved checkpoint state instead of restarting",
+      "caption": "",
+      "description": "Featured infographic for the LangGraph checkpointing guide: completed steps are saved as state snapshots, and a crashed run resumes from the failed node."
+    },
+    {
+      "key": "inline-1",
+      "file": "langgraph-checkpointing-state-snapshots-after-each-step.webp",
+      "title": "LangGraph State Snapshots Saved After Each Step",
+      "alt": "Three LangGraph nodes each saving a state snapshot into a single checkpoint database after every step",
+      "caption": "After every super-step, the checkpointer stores a full snapshot of the graph state under the thread_id.",
+      "description": "Illustration of how a LangGraph checkpointer (SqliteSaver or PostgresSaver) writes a state snapshot after each step of an agent run."
+    },
+    {
+      "key": "inline-2",
+      "file": "langgraph-checkpointing-time-travel-fork.webp",
+      "title": "LangGraph Time Travel: Forking an Old Checkpoint",
+      "alt": "LangGraph time travel: a timeline of checkpoints with a new branch forked from an earlier checkpoint",
+      "caption": "Time travel: pick an earlier checkpoint, update its state, and run a new branch forward from there.",
+      "description": "Illustration of replaying and forking a LangGraph thread from an older checkpoint with get_state_history and update_state."
+    }
+  ],
+  "social_message": "A timeout killed my 5-step agent run, and every token I'd paid for went with it.\n\nLangGraph checkpointing saves the full state after every step, so a crashed run picks up from the exact node that failed. I crashed an agent on purpose to test it, compared the three durability modes, and wrote down the pitfalls that cost me the most time.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/langgraph-checkpointing/\n📌 On Instagram? Link in bio.\n\n#LangGraphCheckpointing #DurableExecution #AgentStatePersistence #Python #AIAgents #AIEngineering"
+}

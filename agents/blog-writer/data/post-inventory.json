@@ -1,0 +1,2688 @@
+{
+  "site": "https://www.firstevolvenextscale.com",
+  "posts": [
+    {
+      "id": 1589,
+      "date": "2026-09-15",
+      "title": "Structured Outputs in Local LLMs: Using Instructor with Python for JSON Extraction 2026",
+      "slug": "structured-outputs-in-local-llm",
+      "link": "https://www.firstevolvenextscale.com/structured-outputs-in-local-llm/",
+      "categories": [
+        "AI Software"
+      ],
+      "tags": [
+        "AI Automation",
+        "function calling",
+        "Instructor library",
+        "Instructor Python",
+        "JSON extraction",
+        "JSON mode",
+        "JSON schema",
+        "LLM structured output",
+        "Local AI",
+        "local language models",
+        "local LLMs",
+        "Ollama",
+        "Ollama Python",
+        "Pydantic",
+        "Pydantic validation",
+        "Python AI",
+        "schema validation",
+        "structured JSON",
+        "structured outputs in local LLMs",
+        "tools mode"
+      ],
+      "excerpt": "Learn how Instructor and Pydantic turn messy local LLM output into reliable, validated JSON — with real Python code and Ollama examples."
+    },
+    {
+      "id": 1577,
+      "date": "2026-09-11",
+      "title": "Debugging Multi-Agent Workflows: How to Fix Infinite Loops in CrewAI & LangGraph",
+      "slug": "debugging-multi-agent-workflows",
+      "link": "https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "agent orchestration",
+        "agent workflow errors",
+        "AI Agent Loops",
+        "AI agent workflows",
+        "AI workflow automation",
+        "CrewAI agents",
+        "CrewAI debugging",
+        "CrewAI infinite loop",
+        "CrewAI max_iter",
+        "debugging multi-agent workflows",
+        "infinite loops in CrewAI",
+        "infinite loops in LangGraph",
+        "LangGraph agents",
+        "LangGraph debugging",
+        "LangGraph infinite loop",
+        "LangGraph recursion limit",
+        "multi-agent AI debugging",
+        "multi-agent architecture",
+        "multi-agent system debugging",
+        "state management in LangGraph"
+      ],
+      "excerpt": "Learn how to fix infinite loops in multi-agent workflows with practical CrewAI and LangGraph debugging techniques, execution limits, state tracking, and better termination conditions."
+    },
+    {
+      "id": 1565,
+      "date": "2026-09-03",
+      "title": "How to Prevent AI Agents From Getting Stuck in Loops: Practical Retry and Exit Strategies",
+      "slug": "prevent-ai-agents-stuck-in-loops",
+      "link": "https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent Architecture",
+        "AI Agent Loops",
+        "AI Agents",
+        "AI Engineering",
+        "AI Safety",
+        "Autonomous Agents",
+        "CrewAI",
+        "Error Handling",
+        "Exit Strategies",
+        "Fault Tolerance",
+        "Human-in-the-Loop",
+        "LangGraph",
+        "LLM Workflows",
+        "Progress Detection",
+        "Prompt Engineering",
+        "Retry Strategies",
+        "Software Architecture",
+        "State Management",
+        "System Design",
+        "Workflow Automation"
+      ],
+      "excerpt": "Discover how to prevent AI agents from getting stuck in loops with this practical guide for developers and system architects. Learn to implement smart retry limits, progress detection, state management, and human-in-the-loop fallback mechanisms to build resilient, controlled automation."
+    },
+    {
+      "id": 1511,
+      "date": "2026-08-25",
+      "title": "Human-in-the-Loop for AI Workflows: How to Keep Control Without Losing Automation Speed",
+      "slug": "human-in-the-loop-for-ai-workflows",
+      "link": "https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agents",
+        "AI Automation",
+        "AI content workflow",
+        "AI decision making",
+        "AI Engineering",
+        "AI governance",
+        "AI monitoring",
+        "AI Productivity",
+        "AI quality control",
+        "AI Safety",
+        "AI systems",
+        "AI workflow automation",
+        "AI workflow design",
+        "AI Workflows",
+        "human AI collaboration",
+        "human in the loop",
+        "human oversight",
+        "human oversight in AI",
+        "intelligent automation",
+        "responsible AI"
+      ],
+      "excerpt": "Human-in-the-Loop for AI Workflows shows how to combine AI automation with targeted human oversight, smarter approval checkpoints, risk controls, and reliable decision-making."
+    },
+    {
+      "id": 1493,
+      "date": "2026-08-24",
+      "title": "Debugging AI Agents: What to Do When Your Multi-Agent System Gets Stuck in an Infinite Loop 2026",
+      "slug": "debugging-ai-agents",
+      "link": "https://www.firstevolvenextscale.com/debugging-ai-agents/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "agent failure modes",
+        "agent orchestration",
+        "Agentic AI",
+        "AI agent debugging",
+        "AI Agent Loops",
+        "AI Agents",
+        "AI Engineering",
+        "AI system debugging",
+        "AI troubleshooting",
+        "AI workflow automation",
+        "AI workflow debugging",
+        "AutoGPT",
+        "Autonomous AI Agents",
+        "CrewAI debugging",
+        "debugging AI agents",
+        "infinite loop AI",
+        "LangGraph debugging",
+        "LLM Agents",
+        "Multi-Agent AI",
+        "Multi-Agent Systems"
+      ],
+      "excerpt": "Debugging AI Agents becomes essential when multi-agent systems get stuck in infinite loops, repeat the same actions, lose track of their goals, or generate unnecessary costs. This practical guide explores common AI agent loop patterns, termination conditions, step limits, semantic similarity checks,"
+    },
+    {
+      "id": 1479,
+      "date": "2026-08-22",
+      "title": "AutoGPT vs. CrewAI vs. LangGraph: Building Your First Multi-Agent Team (Without Code Overload) 2026",
+      "slug": "autogpt-vs-crewai-vs-langgraph",
+      "link": "https://www.firstevolvenextscale.com/autogpt-vs-crewai-vs-langgraph/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agentic AI",
+        "AI Agents",
+        "AI Automation",
+        "AI Development",
+        "AI Engineering",
+        "AI Frameworks",
+        "AI Orchestration",
+        "AI Research Agents",
+        "AI Workflows",
+        "Artificial Intelligence",
+        "AutoGPT",
+        "Autonomous AI",
+        "CrewAI",
+        "LangChain",
+        "LangGraph",
+        "LLM Agents",
+        "Local LLM",
+        "Multi-Agent AI",
+        "Multi-Agent Systems",
+        "Ollama"
+      ],
+      "excerpt": "Compare AutoGPT vs CrewAI vs LangGraph and discover which multi-agent framework is best for beginners, structured workflows, autonomous tasks, and production-ready AI systems."
+    },
+    {
+      "id": 1468,
+      "date": "2026-08-19",
+      "title": "How to Connect Local LLMs (Ollama) with Web Search for Zero-Cost Research Agents 2026",
+      "slug": "local-llms-ollama-with-web-search",
+      "link": "https://www.firstevolvenextscale.com/local-llms-ollama-with-web-search/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agents",
+        "AI Automation",
+        "AI Development",
+        "AI Research Agents",
+        "AI Technology",
+        "LLM Tools",
+        "LLM Web Search",
+        "Local AI",
+        "Local Inference",
+        "Local LLM",
+        "Ollama",
+        "Open Source AI",
+        "RAG",
+        "Research Agents",
+        "Retrieval Augmented Generation",
+        "SearXNG",
+        "Self Hosted AI",
+        "Tavily",
+        "Web Search AI",
+        "Zero Cost AI"
+      ],
+      "excerpt": "Learn how to connect local LLMs with Ollama and web search to build zero-cost research agents. Explore SearXNG, Tavily, tool-calling, RAG, local inference, and practical implementation strategies.Local LLMs (Ollama) with Web Search"
+    },
+    {
+      "id": 1445,
+      "date": "2026-08-16",
+      "title": "Best AI Writing Tools for Bloggers 2026",
+      "slug": "best-ai-writing-tools-for-bloggers",
+      "link": "https://www.firstevolvenextscale.com/best-ai-writing-tools-for-bloggers/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI blog writing assistant",
+        "AI blog writing tools",
+        "AI blogging tools",
+        "AI content creation tools",
+        "AI content optimization tools",
+        "AI content workflow",
+        "AI content writing tools",
+        "AI SEO writing tools",
+        "AI tools for bloggers",
+        "AI tools for content creators",
+        "AI writing assistant",
+        "AI writing tools for bloggers",
+        "AI-powered blogging",
+        "best AI tools for content creation",
+        "best AI writing tools 2026",
+        "Best AI Writing Tools for Bloggers",
+        "blog writing automation",
+        "ChatGPT for bloggers",
+        "Claude for bloggers",
+        "Gemini for bloggers"
+      ],
+      "excerpt": "Finding the right AI writing tool can make blogging faster without sacrificing quality. Explore the best AI writing tools for bloggers, compare their strengths and limitations, and learn how to build a practical AI-assisted blogging workflow for research, writing, editing, SEO, fact-checking, and co"
+    },
+    {
+      "id": 1400,
+      "date": "2026-08-14",
+      "title": "Best Free AI Coding Assistants",
+      "slug": "best-free-ai-coding-assistants",
+      "link": "https://www.firstevolvenextscale.com/best-free-ai-coding-assistants/",
+      "categories": [
+        "AI Software"
+      ],
+      "tags": [
+        "AI Assisted Coding",
+        "AI Code Generators",
+        "AI Coding Assistants",
+        "AI Coding Tools for Developers",
+        "AI Developer Tools",
+        "AI Development Tools",
+        "AI Programming Assistant",
+        "AI Programming Tools",
+        "AI Software Development",
+        "Aider AI",
+        "Best Free AI Coding Assistants",
+        "Code Completion AI",
+        "Coding AI",
+        "Cursor AI",
+        "Free AI Coding Tools",
+        "Free Developer Tools",
+        "Gemini Code Assist",
+        "GitHub Copilot",
+        "Local AI Coding",
+        "Windsurf AI"
+      ],
+      "excerpt": "Explore the best free AI coding assistants for developers, from GitHub Copilot and Cursor to Gemini Code Assist, Windsurf, Aider, and local AI tools. Compare their coding capabilities, repository awareness, free-tier limits, privacy considerations, and practical use cases to find the right AI coding"
+    },
+    {
+      "id": 1375,
+      "date": "2026-08-11",
+      "title": "The Future of AI Chips and Hardware 2026",
+      "slug": "the-future-of-ai-chips-and-hardware",
+      "link": "https://www.firstevolvenextscale.com/the-future-of-ai-chips-and-hardware/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Accelerators",
+        "AI Chips",
+        "AI Data Centers",
+        "AI Hardware",
+        "AI Inference",
+        "AI Infrastructure",
+        "AI Processors",
+        "Artificial Intelligence Hardware",
+        "Chiplet Technology",
+        "Custom AI Chips",
+        "Edge AI",
+        "Future of AI Hardware",
+        "GPU Technology",
+        "HBM3E",
+        "High Bandwidth Memory",
+        "Liquid Cooling",
+        "Machine Learning Hardware",
+        "Neural Processing Units",
+        "NPUs",
+        "Semiconductor Technology"
+      ],
+      "excerpt": "The Future of AI Chips and Hardware is being shaped by more than faster processors. This article explores the technologies driving the next generation of AI infrastructure, including GPUs, custom accelerators, high-bandwidth memory, chip-to-chip communication, liquid cooling, edge AI, NPUs, speciali"
+    },
+    {
+      "id": 1341,
+      "date": "2026-08-10",
+      "title": "How Large Language Models  Work 2026",
+      "slug": "how-large-language-models-work",
+      "link": "https://www.firstevolvenextscale.com/how-large-language-models-work/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agents",
+        "AI Explained",
+        "AI Inference",
+        "AI Models",
+        "AI Reasoning",
+        "AI Technology",
+        "AI Training",
+        "Artificial Intelligence",
+        "Deep Learning",
+        "Generative AI",
+        "How LLMs Work",
+        "Language Models",
+        "Large Language Models",
+        "LLM Explained",
+        "Machine Learning",
+        "Natural Language Processing",
+        "NLP",
+        "RAG",
+        "Retrieval Augmented Generation",
+        "Transformer Architecture"
+      ],
+      "excerpt": "How Large Language Models Work.Large language models may look like they simply generate text, but their underlying process is far more complex. This guide explains how large language models work, covering tokenization, transformers, attention, training, inference, reasoning, hallucinations, RAG, fin"
+    },
+    {
+      "id": 1292,
+      "date": "2026-08-07",
+      "title": "What Is an AI Agent? A Beginner’s Guide",
+      "slug": "what-is-an-ai-agent-a-beginners-guide",
+      "link": "https://www.firstevolvenextscale.com/what-is-an-ai-agent-a-beginners-guide/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agentic AI",
+        "AI",
+        "AI Agent Examples",
+        "AI Agent Guide",
+        "AI Agent Security",
+        "AI Agent Tools",
+        "AI Agents",
+        "AI Automation",
+        "AI Tools",
+        "Artificial Intelligence",
+        "Autonomous AI Agents",
+        "Digital Transformation",
+        "FirstEvolveNextScale",
+        "Future Technology",
+        "How AI Agents Work",
+        "Innovation",
+        "Machine Learning",
+        "Tech Education",
+        "Technology",
+        "What Is an AI Agent"
+      ],
+      "excerpt": "Learn what AI agents are, how they work, how they differ from chatbots and automation, and where they are being used in real-world workflows."
+    },
+    {
+      "id": 1262,
+      "date": "2026-08-06",
+      "title": "Best AI Note-Taking Apps Compared (2026)",
+      "slug": "best-ai-note-taking-apps-compared-2026",
+      "link": "https://www.firstevolvenextscale.com/best-ai-note-taking-apps-compared-2026/",
+      "categories": [
+        "AI Software"
+      ],
+      "tags": [
+        "AI Education",
+        "AI Innovation",
+        "AI Knowledge Management",
+        "AI Note Taking",
+        "AI Productivity",
+        "AI Software",
+        "AI Technology",
+        "AI Tools",
+        "Artificial Intelligence",
+        "Best AI Note-Taking Apps",
+        "ClickUp AI",
+        "Evernote AI",
+        "Future of AI",
+        "Generative AI",
+        "Google NotebookLM",
+        "Machine Learning",
+        "Mem AI",
+        "Microsoft OneNote Copilot",
+        "Notion AI",
+        "Obsidian AI"
+      ],
+      "excerpt": "Looking for the best AI note-taking app in 2026? This detailed comparison reviews Notion AI, Microsoft OneNote Copilot, NotebookLM, Obsidian, Evernote, Mem.ai, and ClickUp AI to help you choose the right tool for productivity, research, meetings, and knowledge management."
+    },
+    {
+      "id": 1228,
+      "date": "2026-08-05",
+      "title": "Best AI Certifications Worth Getting in 2026",
+      "slug": "best-ai-certifications-worth-getting-in-2026",
+      "link": "https://www.firstevolvenextscale.com/best-ai-certifications-worth-getting-in-2026/",
+      "categories": [
+        "AI",
+        "AI Education"
+      ],
+      "tags": [
+        "AI",
+        "AI Career",
+        "AI Certifications",
+        "AI Education",
+        "AI Innovation",
+        "AI Skills",
+        "AI Technology",
+        "AI Tools",
+        "AI Trends",
+        "Artificial Intelligence",
+        "AWS AI Practitioner",
+        "Cloud AI",
+        "Future of AI",
+        "Generative AI",
+        "Google AI Essentials",
+        "IBM AI Engineering",
+        "Machine Learning",
+        "Microsoft AI-900",
+        "NVIDIA AI Certification",
+        "Professional AI Training"
+      ],
+      "excerpt": "Not every AI certification delivers the same value. This guide compares the best AI certifications worth getting in 2026, including programs from Google, Microsoft, AWS, IBM, and NVIDIA. Learn which certifications are best for beginners, developers, cloud professionals, and AI engineers, what skills"
+    },
+    {
+      "id": 1187,
+      "date": "2026-08-04",
+      "title": "Best Free AI Learning Platforms 2026",
+      "slug": "best-free-ai-learning-platforms",
+      "link": "https://www.firstevolvenextscale.com/best-free-ai-learning-platforms/",
+      "categories": [
+        "AI",
+        "AI Education",
+        "Uncategorized"
+      ],
+      "tags": [
+        "AI Education",
+        "AI for Beginners",
+        "AI Learning Resources",
+        "AI Skills",
+        "Artificial Intelligence",
+        "Best Free AI Learning Platforms",
+        "Coursera AI Courses",
+        "DeepLearning.AI",
+        "Free AI Courses",
+        "freeCodeCamp",
+        "Generative AI",
+        "Google AI Courses",
+        "Hugging Face",
+        "Kaggle Learn",
+        "Learn Artificial Intelligence",
+        "Learn Python for AI",
+        "Machine Learning Basics",
+        "Microsoft Learn",
+        "Online AI Courses",
+        "Prompt Engineering"
+      ],
+      "excerpt": "Discover the best free AI learning platforms for beginners in 2026. Explore trusted resources like Coursera, Google AI Courses, Microsoft Learn, DeepLearning.AI, Kaggle Learn, freeCodeCamp, and Hugging Face. Whether you want to understand AI fundamentals, learn Python, build machine learning project"
+    },
+    {
+      "id": 1172,
+      "date": "2026-08-03",
+      "title": "Beginner’s Guide to SEO 2026",
+      "slug": "beginners-guide-to-seo",
+      "link": "https://www.firstevolvenextscale.com/beginners-guide-to-seo/",
+      "categories": [
+        "AI Education",
+        "AI Technology",
+        "Uncategorized"
+      ],
+      "tags": [
+        "Beginner SEO",
+        "Blogging Tips",
+        "Content Marketing",
+        "Content SEO",
+        "Digital Marketing",
+        "Google Rankings",
+        "Google SEO",
+        "Keyword Research",
+        "Learn SEO",
+        "On-Page SEO",
+        "Organic Traffic",
+        "Search Engine Optimization",
+        "SEO",
+        "SEO for Beginners",
+        "SEO Guide",
+        "SEO Strategy",
+        "SEO Tips",
+        "Technical SEO",
+        "Website Optimization",
+        "Website Traffic"
+      ],
+      "excerpt": "Beginner’s Guide to SEO.Learn the fundamentals of SEO with this beginner-friendly guide. Discover how search engines work, master on-page SEO, understand search intent, and apply practical strategies to improve your website’s visibility and attract more organic traffic."
+    },
+    {
+      "id": 1157,
+      "date": "2026-08-02",
+      "title": "UI/UX Design Trends in 2026",
+      "slug": "ui-ux-design-trends-in-2026",
+      "link": "https://www.firstevolvenextscale.com/ui-ux-design-trends-in-2026/",
+      "categories": [
+        "AI",
+        "AI Technology",
+        "Uncategorized"
+      ],
+      "tags": [
+        "Accessibility Design",
+        "AI Design",
+        "AI in UI",
+        "AI UX",
+        "Design Inspiration",
+        "Microinteractions",
+        "Mobile App Design",
+        "Product Design",
+        "Responsive Design",
+        "SaaS Design",
+        "UI Design",
+        "UI Design Trends",
+        "UI Inspiration",
+        "UI Trends",
+        "UI UX",
+        "UI UX Design",
+        "User-Centered Design",
+        "UX Best Practices",
+        "UX Design",
+        "UX Design Trends",
+        "UX Research",
+        "UX Trends",
+        "Visual Design",
+        "Web Design Trends"
+      ],
+      "excerpt": "User expectations are evolving faster than ever. This guide explores the biggest UI/UX design trends of 2026, including AI-powered interfaces, accessibility-first design, microinteractions, motion design, personalization, and practical strategies for creating digital products people genuinely enjoy "
+    },
+    {
+      "id": 1139,
+      "date": "2026-08-01",
+      "title": "Essential Productivity Software: The Best Tools to Work Smarter in 2026",
+      "slug": "essential-productivity-software",
+      "link": "https://www.firstevolvenextscale.com/essential-productivity-software/",
+      "categories": [
+        "AI",
+        "AI Software",
+        "AI Technology",
+        "Uncategorized"
+      ],
+      "tags": [
+        "AI Productivity",
+        "Artificial Intelligence",
+        "Best Productivity Apps",
+        "Business Productivity",
+        "ChatGPT",
+        "Cloud Collaboration",
+        "Digital Workspace",
+        "Google Gemini",
+        "Google Workspace",
+        "Microsoft 365",
+        "Microsoft Copilot",
+        "Notion",
+        "Productivity Software",
+        "Project Management",
+        "Remote Work",
+        "Software Tools",
+        "Task Management",
+        "Technology",
+        "Trello",
+        "Workflow Automation"
+      ],
+      "excerpt": "Choosing the right productivity software can transform the way you work, learn, and manage your daily tasks. In this guide, you’ll discover the most effective productivity tools for 2026, including AI-powered assistants, collaboration platforms, project management software, and note-taking applicati"
+    },
+    {
+      "id": 1111,
+      "date": "2026-07-31",
+      "title": "Best Programming Languages for Beginners",
+      "slug": "best-programming-languages-for-beginners",
+      "link": "https://www.firstevolvenextscale.com/best-programming-languages-for-beginners/",
+      "categories": [
+        "AI Education",
+        "AI Software"
+      ],
+      "tags": [
+        "Artificial Intelligence",
+        "Beginner Guide",
+        "Coding",
+        "Coding for Beginners",
+        "Computer Science",
+        "Developer Career",
+        "free Go course",
+        "Free JavaScript course",
+        "free Python course",
+        "free Scratch course",
+        "free software course",
+        "Go",
+        "JavaScript",
+        "Learn to Code",
+        "Programming",
+        "Programming Languages",
+        "Python",
+        "Scratch",
+        "Software Development",
+        "udemy",
+        "Web Development"
+      ],
+      "excerpt": "Discover the best programming languages for beginners in 2026. Compare Python, JavaScript, Go, and Scratch, learn their real-world applications, and choose the right language based on your goals."
+    },
+    {
+      "id": 1080,
+      "date": "2026-07-29",
+      "title": "Top 10 Emerging Technologies Shaping the Future",
+      "slug": "top-10-emerging-technologies-shaping-the-future",
+      "link": "https://www.firstevolvenextscale.com/top-10-emerging-technologies-shaping-the-future/",
+      "categories": [
+        "AI Technology"
+      ],
+      "tags": [
+        "AI in Education",
+        "AI Software",
+        "Artificial Intelligence",
+        "Artificial Intelligence Explained",
+        "ChatGPT",
+        "Computer Vision",
+        "Emerging Technologies",
+        "Gemini AI",
+        "How Artificial Intelligence Works",
+        "Natural Language Processing"
+      ],
+      "excerpt": "Technology has always been at the forefront of humanity’s evolution. From the invention of the Internet to smartphones and cloud computing, every major technological innovation has had a tremendous impact on society. Today, we are witnessing the dawn of a new era of technology that is set to disrupt"
+    },
+    {
+      "id": 1067,
+      "date": "2026-07-28",
+      "title": "What Is Artificial Intelligence in 2026?",
+      "slug": "what-is-artificial-intelligence-in-2026",
+      "link": "https://www.firstevolvenextscale.com/what-is-artificial-intelligence-in-2026/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI",
+        "AI 2026",
+        "AI Agents",
+        "AI Automation",
+        "AI Guide",
+        "AI Image Generation",
+        "AI in Business",
+        "AI in Education",
+        "AI Software",
+        "AI Technology",
+        "AI Tools",
+        "AI Trends",
+        "Artificial Intelligence",
+        "Artificial Intelligence Explained",
+        "ChatGPT",
+        "Claude AI",
+        "Computer Vision",
+        "Deep Learning",
+        "Digital Transformation",
+        "Emerging Technologies",
+        "Future of AI",
+        "Gemini AI",
+        "Generative AI",
+        "How Artificial Intelligence Works",
+        "Machine Learning",
+        "Natural Language Processing"
+      ],
+      "excerpt": "Artificial Intelligence, or AI, has become one of the most sought-after technologies of the decade. From news articles to business boardrooms, from classroom lectures to your phone’s voice assistant, AI has worked its way into popular culture. At the same time, many people still associate AI with sc"
+    }
+  ],
+  "categories": [
+    {
+      "id": 5,
+      "name": "AI"
+    },
+    {
+      "id": 11,
+      "name": "AI Education"
+    },
+    {
+      "id": 8,
+      "name": "AI Software"
+    },
+    {
+      "id": 6,
+      "name": "AI Technology"
+    },
+    {
+      "id": 256,
+      "name": "Resources"
+    },
+    {
+      "id": 1,
+      "name": "Uncategorized"
+    }
+  ],
+  "tags": [
+    {
+      "id": 71,
+      "count": 10,
+      "name": "Artificial Intelligence"
+    },
+    {
+      "id": 82,
+      "count": 8,
+      "name": "AI Agents"
+    },
+    {
+      "id": 83,
+      "count": 6,
+      "name": "AI Automation"
+    },
+    {
+      "id": 76,
+      "count": 5,
+      "name": "AI Technology"
+    },
+    {
+      "id": 75,
+      "count": 5,
+      "name": "Generative AI"
+    },
+    {
+      "id": 74,
+      "count": 5,
+      "name": "Machine Learning"
+    },
+    {
+      "id": 461,
+      "count": 4,
+      "name": "AI Engineering"
+    },
+    {
+      "id": 77,
+      "count": 4,
+      "name": "AI Tools"
+    },
+    {
+      "id": 322,
+      "count": 3,
+      "name": "Agentic AI"
+    },
+    {
+      "id": 72,
+      "count": 3,
+      "name": "AI"
+    },
+    {
+      "id": 464,
+      "count": 3,
+      "name": "AI Agent Loops"
+    },
+    {
+      "id": 253,
+      "count": 3,
+      "name": "AI Education"
+    },
+    {
+      "id": 156,
+      "count": 3,
+      "name": "AI Productivity"
+    },
+    {
+      "id": 88,
+      "count": 3,
+      "name": "AI Software"
+    },
+    {
+      "id": 492,
+      "count": 3,
+      "name": "AI workflow automation"
+    },
+    {
+      "id": 92,
+      "count": 3,
+      "name": "ChatGPT"
+    },
+    {
+      "id": 78,
+      "count": 3,
+      "name": "Future of AI"
+    },
+    {
+      "id": 86,
+      "count": 3,
+      "name": "Natural Language Processing"
+    },
+    {
+      "id": 443,
+      "count": 3,
+      "name": "Ollama"
+    },
+    {
+      "id": 489,
+      "count": 2,
+      "name": "agent orchestration"
+    },
+    {
+      "id": 431,
+      "count": 2,
+      "name": "AI content workflow"
+    },
+    {
+      "id": 449,
+      "count": 2,
+      "name": "AI Development"
+    },
+    {
+      "id": 87,
+      "count": 2,
+      "name": "AI in Education"
+    },
+    {
+      "id": 372,
+      "count": 2,
+      "name": "AI Inference"
+    },
+    {
+      "id": 105,
+      "count": 2,
+      "name": "AI Innovation"
+    },
+    {
+      "id": 437,
+      "count": 2,
+      "name": "AI Research Agents"
+    },
+    {
+      "id": 469,
+      "count": 2,
+      "name": "AI Safety"
+    },
+    {
+      "id": 255,
+      "count": 2,
+      "name": "AI Skills"
+    },
+    {
+      "id": 79,
+      "count": 2,
+      "name": "AI Trends"
+    },
+    {
+      "id": 458,
+      "count": 2,
+      "name": "AI Workflows"
+    },
+    {
+      "id": 91,
+      "count": 2,
+      "name": "Artificial Intelligence Explained"
+    },
+    {
+      "id": 452,
+      "count": 2,
+      "name": "AutoGPT"
+    },
+    {
+      "id": 328,
+      "count": 2,
+      "name": "Autonomous AI Agents"
+    },
+    {
+      "id": 85,
+      "count": 2,
+      "name": "Computer Vision"
+    },
+    {
+      "id": 450,
+      "count": 2,
+      "name": "CrewAI"
+    },
+    {
+      "id": 477,
+      "count": 2,
+      "name": "CrewAI debugging"
+    },
+    {
+      "id": 81,
+      "count": 2,
+      "name": "Deep Learning"
+    },
+    {
+      "id": 96,
+      "count": 2,
+      "name": "Digital Transformation"
+    },
+    {
+      "id": 89,
+      "count": 2,
+      "name": "Emerging Technologies"
+    },
+    {
+      "id": 93,
+      "count": 2,
+      "name": "Gemini AI"
+    },
+    {
+      "id": 90,
+      "count": 2,
+      "name": "How Artificial Intelligence Works"
+    },
+    {
+      "id": 451,
+      "count": 2,
+      "name": "LangGraph"
+    },
+    {
+      "id": 478,
+      "count": 2,
+      "name": "LangGraph debugging"
+    },
+    {
+      "id": 456,
+      "count": 2,
+      "name": "LLM Agents"
+    },
+    {
+      "id": 440,
+      "count": 2,
+      "name": "Local AI"
+    },
+    {
+      "id": 438,
+      "count": 2,
+      "name": "Local LLM"
+    },
+    {
+      "id": 454,
+      "count": 2,
+      "name": "Multi-Agent AI"
+    },
+    {
+      "id": 453,
+      "count": 2,
+      "name": "Multi-Agent Systems"
+    },
+    {
+      "id": 243,
+      "count": 2,
+      "name": "Prompt Engineering"
+    },
+    {
+      "id": 373,
+      "count": 2,
+      "name": "RAG"
+    },
+    {
+      "id": 375,
+      "count": 2,
+      "name": "Retrieval Augmented Generation"
+    },
+    {
+      "id": 171,
+      "count": 2,
+      "name": "Technology"
+    },
+    {
+      "id": 168,
+      "count": 2,
+      "name": "Workflow Automation"
+    },
+    {
+      "id": 180,
+      "count": 1,
+      "name": "Accessibility Design"
+    },
+    {
+      "id": 468,
+      "count": 1,
+      "name": "Agent Architecture"
+    },
+    {
+      "id": 529,
+      "count": 1,
+      "name": "agent failure modes"
+    },
+    {
+      "id": 488,
+      "count": 1,
+      "name": "agent workflow errors"
+    },
+    {
+      "id": 73,
+      "count": 1,
+      "name": "AI 2026"
+    },
+    {
+      "id": 384,
+      "count": 1,
+      "name": "AI Accelerators"
+    },
+    {
+      "id": 525,
+      "count": 1,
+      "name": "AI agent debugging"
+    },
+    {
+      "id": 326,
+      "count": 1,
+      "name": "AI Agent Examples"
+    },
+    {
+      "id": 324,
+      "count": 1,
+      "name": "AI Agent Guide"
+    },
+    {
+      "id": 329,
+      "count": 1,
+      "name": "AI Agent Security"
+    },
+    {
+      "id": 327,
+      "count": 1,
+      "name": "AI Agent Tools"
+    },
+    {
+      "id": 482,
+      "count": 1,
+      "name": "AI agent workflows"
+    },
+    {
+      "id": 402,
+      "count": 1,
+      "name": "AI Assisted Coding"
+    },
+    {
+      "id": 428,
+      "count": 1,
+      "name": "AI blog writing assistant"
+    },
+    {
+      "id": 422,
+      "count": 1,
+      "name": "AI blog writing tools"
+    },
+    {
+      "id": 419,
+      "count": 1,
+      "name": "AI blogging tools"
+    },
+    {
+      "id": 264,
+      "count": 1,
+      "name": "AI Career"
+    },
+    {
+      "id": 257,
+      "count": 1,
+      "name": "AI Certifications"
+    },
+    {
+      "id": 376,
+      "count": 1,
+      "name": "AI Chips"
+    },
+    {
+      "id": 395,
+      "count": 1,
+      "name": "AI Code Generators"
+    },
+    {
+      "id": 397,
+      "count": 1,
+      "name": "AI Coding Assistants"
+    },
+    {
+      "id": 413,
+      "count": 1,
+      "name": "AI Coding Tools for Developers"
+    },
+    {
+      "id": 416,
+      "count": 1,
+      "name": "AI content creation tools"
+    },
+    {
+      "id": 432,
+      "count": 1,
+      "name": "AI content optimization tools"
+    },
+    {
+      "id": 424,
+      "count": 1,
+      "name": "AI content writing tools"
+    },
+    {
+      "id": 387,
+      "count": 1,
+      "name": "AI Data Centers"
+    },
+    {
+      "id": 516,
+      "count": 1,
+      "name": "AI decision making"
+    },
+    {
+      "id": 187,
+      "count": 1,
+      "name": "AI Design"
+    },
+    {
+      "id": 398,
+      "count": 1,
+      "name": "AI Developer Tools"
+    },
+    {
+      "id": 414,
+      "count": 1,
+      "name": "AI Development Tools"
+    },
+    {
+      "id": 366,
+      "count": 1,
+      "name": "AI Explained"
+    },
+    {
+      "id": 241,
+      "count": 1,
+      "name": "AI for Beginners"
+    },
+    {
+      "id": 455,
+      "count": 1,
+      "name": "AI Frameworks"
+    },
+    {
+      "id": 515,
+      "count": 1,
+      "name": "AI governance"
+    },
+    {
+      "id": 80,
+      "count": 1,
+      "name": "AI Guide"
+    },
+    {
+      "id": 379,
+      "count": 1,
+      "name": "AI Hardware"
+    },
+    {
+      "id": 95,
+      "count": 1,
+      "name": "AI Image Generation"
+    },
+    {
+      "id": 84,
+      "count": 1,
+      "name": "AI in Business"
+    },
+    {
+      "id": 199,
+      "count": 1,
+      "name": "AI in UI"
+    },
+    {
+      "id": 391,
+      "count": 1,
+      "name": "AI Infrastructure"
+    },
+    {
+      "id": 312,
+      "count": 1,
+      "name": "AI Knowledge Management"
+    },
+    {
+      "id": 242,
+      "count": 1,
+      "name": "AI Learning Resources"
+    },
+    {
+      "id": 368,
+      "count": 1,
+      "name": "AI Models"
+    },
+    {
+      "id": 518,
+      "count": 1,
+      "name": "AI monitoring"
+    },
+    {
+      "id": 308,
+      "count": 1,
+      "name": "AI Note Taking"
+    },
+    {
+      "id": 457,
+      "count": 1,
+      "name": "AI Orchestration"
+    },
+    {
+      "id": 382,
+      "count": 1,
+      "name": "AI Processors"
+    },
+    {
+      "id": 408,
+      "count": 1,
+      "name": "AI Programming Assistant"
+    },
+    {
+      "id": 396,
+      "count": 1,
+      "name": "AI Programming Tools"
+    },
+    {
+      "id": 519,
+      "count": 1,
+      "name": "AI quality control"
+    },
+    {
+      "id": 374,
+      "count": 1,
+      "name": "AI Reasoning"
+    },
+    {
+      "id": 425,
+      "count": 1,
+      "name": "AI SEO writing tools"
+    },
+    {
+      "id": 404,
+      "count": 1,
+      "name": "AI Software Development"
+    },
+    {
+      "id": 530,
+      "count": 1,
+      "name": "AI system debugging"
+    },
+    {
+      "id": 523,
+      "count": 1,
+      "name": "AI systems"
+    },
+    {
+      "id": 423,
+      "count": 1,
+      "name": "AI tools for bloggers"
+    },
+    {
+      "id": 433,
+      "count": 1,
+      "name": "AI tools for content creators"
+    },
+    {
+      "id": 371,
+      "count": 1,
+      "name": "AI Training"
+    },
+    {
+      "id": 528,
+      "count": 1,
+      "name": "AI troubleshooting"
+    },
+    {
+      "id": 197,
+      "count": 1,
+      "name": "AI UX"
+    },
+    {
+      "id": 527,
+      "count": 1,
+      "name": "AI workflow debugging"
+    },
+    {
+      "id": 520,
+      "count": 1,
+      "name": "AI workflow design"
+    },
+    {
+      "id": 427,
+      "count": 1,
+      "name": "AI writing assistant"
+    },
+    {
+      "id": 418,
+      "count": 1,
+      "name": "AI writing tools for bloggers"
+    },
+    {
+      "id": 426,
+      "count": 1,
+      "name": "AI-powered blogging"
+    },
+    {
+      "id": 407,
+      "count": 1,
+      "name": "Aider AI"
+    },
+    {
+      "id": 377,
+      "count": 1,
+      "name": "Artificial Intelligence Hardware"
+    },
+    {
+      "id": 470,
+      "count": 1,
+      "name": "Autonomous Agents"
+    },
+    {
+      "id": 459,
+      "count": 1,
+      "name": "Autonomous AI"
+    },
+    {
+      "id": 260,
+      "count": 1,
+      "name": "AWS AI Practitioner"
+    },
+    {
+      "id": 123,
+      "count": 1,
+      "name": "Beginner Guide"
+    },
+    {
+      "id": 220,
+      "count": 1,
+      "name": "Beginner SEO"
+    },
+    {
+      "id": 303,
+      "count": 1,
+      "name": "Best AI Note-Taking Apps"
+    },
+    {
+      "id": 434,
+      "count": 1,
+      "name": "best AI tools for content creation"
+    },
+    {
+      "id": 420,
+      "count": 1,
+      "name": "best AI writing tools 2026"
+    },
+    {
+      "id": 417,
+      "count": 1,
+      "name": "Best AI Writing Tools for Bloggers"
+    },
+    {
+      "id": 401,
+      "count": 1,
+      "name": "Best Free AI Coding Assistants"
+    },
+    {
+      "id": 238,
+      "count": 1,
+      "name": "Best Free AI Learning Platforms"
+    },
+    {
+      "id": 151,
+      "count": 1,
+      "name": "Best Productivity Apps"
+    },
+    {
+      "id": 429,
+      "count": 1,
+      "name": "blog writing automation"
+    },
+    {
+      "id": 230,
+      "count": 1,
+      "name": "Blogging Tips"
+    },
+    {
+      "id": 170,
+      "count": 1,
+      "name": "Business Productivity"
+    },
+    {
+      "id": 415,
+      "count": 1,
+      "name": "ChatGPT for bloggers"
+    },
+    {
+      "id": 393,
+      "count": 1,
+      "name": "Chiplet Technology"
+    },
+    {
+      "id": 94,
+      "count": 1,
+      "name": "Claude AI"
+    },
+    {
+      "id": 421,
+      "count": 1,
+      "name": "Claude for bloggers"
+    },
+    {
+      "id": 311,
+      "count": 1,
+      "name": "ClickUp AI"
+    },
+    {
+      "id": 261,
+      "count": 1,
+      "name": "Cloud AI"
+    },
+    {
+      "id": 166,
+      "count": 1,
+      "name": "Cloud Collaboration"
+    },
+    {
+      "id": 400,
+      "count": 1,
+      "name": "Code Completion AI"
+    },
+    {
+      "id": 110,
+      "count": 1,
+      "name": "Coding"
+    },
+    {
+      "id": 403,
+      "count": 1,
+      "name": "Coding AI"
+    },
+    {
+      "id": 116,
+      "count": 1,
+      "name": "Coding for Beginners"
+    },
+    {
+      "id": 122,
+      "count": 1,
+      "name": "Computer Science"
+    },
+    {
+      "id": 227,
+      "count": 1,
+      "name": "Content Marketing"
+    },
+    {
+      "id": 235,
+      "count": 1,
+      "name": "Content SEO"
+    },
+    {
+      "id": 248,
+      "count": 1,
+      "name": "Coursera AI Courses"
+    },
+    {
+      "id": 493,
+      "count": 1,
+      "name": "CrewAI agents"
+    },
+    {
+      "id": 483,
+      "count": 1,
+      "name": "CrewAI infinite loop"
+    },
+    {
+      "id": 486,
+      "count": 1,
+      "name": "CrewAI max_iter"
+    },
+    {
+      "id": 409,
+      "count": 1,
+      "name": "Cursor AI"
+    },
+    {
+      "id": 388,
+      "count": 1,
+      "name": "Custom AI Chips"
+    },
+    {
+      "id": 524,
+      "count": 1,
+      "name": "debugging AI agents"
+    },
+    {
+      "id": 476,
+      "count": 1,
+      "name": "debugging multi-agent workflows"
+    },
+    {
+      "id": 245,
+      "count": 1,
+      "name": "DeepLearning.AI"
+    },
+    {
+      "id": 206,
+      "count": 1,
+      "name": "Design Inspiration"
+    },
+    {
+      "id": 120,
+      "count": 1,
+      "name": "Developer Career"
+    },
+    {
+      "id": 232,
+      "count": 1,
+      "name": "Digital Marketing"
+    },
+    {
+      "id": 165,
+      "count": 1,
+      "name": "Digital Workspace"
+    },
+    {
+      "id": 390,
+      "count": 1,
+      "name": "Edge AI"
+    },
+    {
+      "id": 473,
+      "count": 1,
+      "name": "Error Handling"
+    },
+    {
+      "id": 306,
+      "count": 1,
+      "name": "Evernote AI"
+    },
+    {
+      "id": 462,
+      "count": 1,
+      "name": "Exit Strategies"
+    },
+    {
+      "id": 467,
+      "count": 1,
+      "name": "Fault Tolerance"
+    },
+    {
+      "id": 321,
+      "count": 1,
+      "name": "FirstEvolveNextScale"
+    },
+    {
+      "id": 399,
+      "count": 1,
+      "name": "Free AI Coding Tools"
+    },
+    {
+      "id": 239,
+      "count": 1,
+      "name": "Free AI Courses"
+    },
+    {
+      "id": 411,
+      "count": 1,
+      "name": "Free Developer Tools"
+    },
+    {
+      "id": 127,
+      "count": 1,
+      "name": "free Go course"
+    },
+    {
+      "id": 126,
+      "count": 1,
+      "name": "Free JavaScript course"
+    },
+    {
+      "id": 125,
+      "count": 1,
+      "name": "free Python course"
+    },
+    {
+      "id": 128,
+      "count": 1,
+      "name": "free Scratch course"
+    },
+    {
+      "id": 124,
+      "count": 1,
+      "name": "free software course"
+    },
+    {
+      "id": 251,
+      "count": 1,
+      "name": "freeCodeCamp"
+    },
+    {
+      "id": 509,
+      "count": 1,
+      "name": "function calling"
+    },
+    {
+      "id": 394,
+      "count": 1,
+      "name": "Future of AI Hardware"
+    },
+    {
+      "id": 101,
+      "count": 1,
+      "name": "Future Technology"
+    },
+    {
+      "id": 405,
+      "count": 1,
+      "name": "Gemini Code Assist"
+    },
+    {
+      "id": 430,
+      "count": 1,
+      "name": "Gemini for bloggers"
+    },
+    {
+      "id": 406,
+      "count": 1,
+      "name": "GitHub Copilot"
+    },
+    {
+      "id": 119,
+      "count": 1,
+      "name": "Go"
+    },
+    {
+      "id": 246,
+      "count": 1,
+      "name": "Google AI Courses"
+    },
+    {
+      "id": 262,
+      "count": 1,
+      "name": "Google AI Essentials"
+    },
+    {
+      "id": 158,
+      "count": 1,
+      "name": "Google Gemini"
+    },
+    {
+      "id": 310,
+      "count": 1,
+      "name": "Google NotebookLM"
+    },
+    {
+      "id": 234,
+      "count": 1,
+      "name": "Google Rankings"
+    },
+    {
+      "id": 223,
+      "count": 1,
+      "name": "Google SEO"
+    },
+    {
+      "id": 161,
+      "count": 1,
+      "name": "Google Workspace"
+    },
+    {
+      "id": 380,
+      "count": 1,
+      "name": "GPU Technology"
+    },
+    {
+      "id": 385,
+      "count": 1,
+      "name": "HBM3E"
+    },
+    {
+      "id": 378,
+      "count": 1,
+      "name": "High Bandwidth Memory"
+    },
+    {
+      "id": 325,
+      "count": 1,
+      "name": "How AI Agents Work"
+    },
+    {
+      "id": 364,
+      "count": 1,
+      "name": "How LLMs Work"
+    },
+    {
+      "id": 250,
+      "count": 1,
+      "name": "Hugging Face"
+    },
+    {
+      "id": 513,
+      "count": 1,
+      "name": "human AI collaboration"
+    },
+    {
+      "id": 512,
+      "count": 1,
+      "name": "human in the loop"
+    },
+    {
+      "id": 514,
+      "count": 1,
+      "name": "human oversight"
+    },
+    {
+      "id": 521,
+      "count": 1,
+      "name": "human oversight in AI"
+    },
+    {
+      "id": 466,
+      "count": 1,
+      "name": "Human-in-the-Loop"
+    },
+    {
+      "id": 259,
+      "count": 1,
+      "name": "IBM AI Engineering"
+    },
+    {
+      "id": 526,
+      "count": 1,
+      "name": "infinite loop AI"
+    },
+    {
+      "id": 479,
+      "count": 1,
+      "name": "infinite loops in CrewAI"
+    },
+    {
+      "id": 480,
+      "count": 1,
+      "name": "infinite loops in LangGraph"
+    },
+    {
+      "id": 108,
+      "count": 1,
+      "name": "Innovation"
+    },
+    {
+      "id": 502,
+      "count": 1,
+      "name": "Instructor library"
+    },
+    {
+      "id": 500,
+      "count": 1,
+      "name": "Instructor Python"
+    },
+    {
+      "id": 517,
+      "count": 1,
+      "name": "intelligent automation"
+    },
+    {
+      "id": 113,
+      "count": 1,
+      "name": "JavaScript"
+    },
+    {
+      "id": 497,
+      "count": 1,
+      "name": "JSON extraction"
+    },
+    {
+      "id": 507,
+      "count": 1,
+      "name": "JSON mode"
+    },
+    {
+      "id": 496,
+      "count": 1,
+      "name": "JSON schema"
+    },
+    {
+      "id": 249,
+      "count": 1,
+      "name": "Kaggle Learn"
+    },
+    {
+      "id": 226,
+      "count": 1,
+      "name": "Keyword Research"
+    },
+    {
+      "id": 460,
+      "count": 1,
+      "name": "LangChain"
+    },
+    {
+      "id": 491,
+      "count": 1,
+      "name": "LangGraph agents"
+    },
+    {
+      "id": 484,
+      "count": 1,
+      "name": "LangGraph infinite loop"
+    },
+    {
+      "id": 485,
+      "count": 1,
+      "name": "LangGraph recursion limit"
+    },
+    {
+      "id": 369,
+      "count": 1,
+      "name": "Language Models"
+    },
+    {
+      "id": 363,
+      "count": 1,
+      "name": "Large Language Models"
+    },
+    {
+      "id": 240,
+      "count": 1,
+      "name": "Learn Artificial Intelligence"
+    },
+    {
+      "id": 252,
+      "count": 1,
+      "name": "Learn Python for AI"
+    },
+    {
+      "id": 237,
+      "count": 1,
+      "name": "Learn SEO"
+    },
+    {
+      "id": 111,
+      "count": 1,
+      "name": "Learn to Code"
+    },
+    {
+      "id": 389,
+      "count": 1,
+      "name": "Liquid Cooling"
+    },
+    {
+      "id": 365,
+      "count": 1,
+      "name": "LLM Explained"
+    },
+    {
+      "id": 498,
+      "count": 1,
+      "name": "LLM structured output"
+    },
+    {
+      "id": 436,
+      "count": 1,
+      "name": "LLM Tools"
+    },
+    {
+      "id": 448,
+      "count": 1,
+      "name": "LLM Web Search"
+    },
+    {
+      "id": 472,
+      "count": 1,
+      "name": "LLM Workflows"
+    },
+    {
+      "id": 412,
+      "count": 1,
+      "name": "Local AI Coding"
+    },
+    {
+      "id": 446,
+      "count": 1,
+      "name": "Local Inference"
+    },
+    {
+      "id": 511,
+      "count": 1,
+      "name": "local language models"
+    },
+    {
+      "id": 501,
+      "count": 1,
+      "name": "local LLMs"
+    },
+    {
+      "id": 244,
+      "count": 1,
+      "name": "Machine Learning Basics"
+    },
+    {
+      "id": 381,
+      "count": 1,
+      "name": "Machine Learning Hardware"
+    },
+    {
+      "id": 307,
+      "count": 1,
+      "name": "Mem AI"
+    },
+    {
+      "id": 186,
+      "count": 1,
+      "name": "Microinteractions"
+    },
+    {
+      "id": 160,
+      "count": 1,
+      "name": "Microsoft 365"
+    },
+    {
+      "id": 258,
+      "count": 1,
+      "name": "Microsoft AI-900"
+    },
+    {
+      "id": 157,
+      "count": 1,
+      "name": "Microsoft Copilot"
+    },
+    {
+      "id": 247,
+      "count": 1,
+      "name": "Microsoft Learn"
+    },
+    {
+      "id": 309,
+      "count": 1,
+      "name": "Microsoft OneNote Copilot"
+    },
+    {
+      "id": 184,
+      "count": 1,
+      "name": "Mobile App Design"
+    },
+    {
+      "id": 481,
+      "count": 1,
+      "name": "multi-agent AI debugging"
+    },
+    {
+      "id": 494,
+      "count": 1,
+      "name": "multi-agent architecture"
+    },
+    {
+      "id": 487,
+      "count": 1,
+      "name": "multi-agent system debugging"
+    },
+    {
+      "id": 383,
+      "count": 1,
+      "name": "Neural Processing Units"
+    },
+    {
+      "id": 370,
+      "count": 1,
+      "name": "NLP"
+    },
+    {
+      "id": 159,
+      "count": 1,
+      "name": "Notion"
+    },
+    {
+      "id": 304,
+      "count": 1,
+      "name": "Notion AI"
+    },
+    {
+      "id": 386,
+      "count": 1,
+      "name": "NPUs"
+    },
+    {
+      "id": 263,
+      "count": 1,
+      "name": "NVIDIA AI Certification"
+    },
+    {
+      "id": 305,
+      "count": 1,
+      "name": "Obsidian AI"
+    },
+    {
+      "id": 506,
+      "count": 1,
+      "name": "Ollama Python"
+    },
+    {
+      "id": 225,
+      "count": 1,
+      "name": "On-Page SEO"
+    },
+    {
+      "id": 254,
+      "count": 1,
+      "name": "Online AI Courses"
+    },
+    {
+      "id": 442,
+      "count": 1,
+      "name": "Open Source AI"
+    },
+    {
+      "id": 222,
+      "count": 1,
+      "name": "Organic Traffic"
+    },
+    {
+      "id": 190,
+      "count": 1,
+      "name": "Product Design"
+    },
+    {
+      "id": 155,
+      "count": 1,
+      "name": "Productivity Software"
+    },
+    {
+      "id": 265,
+      "count": 1,
+      "name": "Professional AI Training"
+    },
+    {
+      "id": 115,
+      "count": 1,
+      "name": "Programming"
+    },
+    {
+      "id": 118,
+      "count": 1,
+      "name": "Programming Languages"
+    },
+    {
+      "id": 465,
+      "count": 1,
+      "name": "Progress Detection"
+    },
+    {
+      "id": 163,
+      "count": 1,
+      "name": "Project Management"
+    },
+    {
+      "id": 504,
+      "count": 1,
+      "name": "Pydantic"
+    },
+    {
+      "id": 505,
+      "count": 1,
+      "name": "Pydantic validation"
+    },
+    {
+      "id": 112,
+      "count": 1,
+      "name": "Python"
+    },
+    {
+      "id": 499,
+      "count": 1,
+      "name": "Python AI"
+    },
+    {
+      "id": 167,
+      "count": 1,
+      "name": "Remote Work"
+    },
+    {
+      "id": 435,
+      "count": 1,
+      "name": "Research Agents"
+    },
+    {
+      "id": 522,
+      "count": 1,
+      "name": "responsible AI"
+    },
+    {
+      "id": 189,
+      "count": 1,
+      "name": "Responsive Design"
+    },
+    {
+      "id": 463,
+      "count": 1,
+      "name": "Retry Strategies"
+    },
+    {
+      "id": 216,
+      "count": 1,
+      "name": "SaaS Design"
+    },
+    {
+      "id": 510,
+      "count": 1,
+      "name": "schema validation"
+    },
+    {
+      "id": 117,
+      "count": 1,
+      "name": "Scratch"
+    },
+    {
+      "id": 224,
+      "count": 1,
+      "name": "Search Engine Optimization"
+    },
+    {
+      "id": 439,
+      "count": 1,
+      "name": "SearXNG"
+    },
+    {
+      "id": 444,
+      "count": 1,
+      "name": "Self Hosted AI"
+    },
+    {
+      "id": 392,
+      "count": 1,
+      "name": "Semiconductor Technology"
+    },
+    {
+      "id": 218,
+      "count": 1,
+      "name": "SEO"
+    },
+    {
+      "id": 219,
+      "count": 1,
+      "name": "SEO for Beginners"
+    },
+    {
+      "id": 221,
+      "count": 1,
+      "name": "SEO Guide"
+    },
+    {
+      "id": 236,
+      "count": 1,
+      "name": "SEO Strategy"
+    },
+    {
+      "id": 233,
+      "count": 1,
+      "name": "SEO Tips"
+    },
+    {
+      "id": 471,
+      "count": 1,
+      "name": "Software Architecture"
+    },
+    {
+      "id": 114,
+      "count": 1,
+      "name": "Software Development"
+    },
+    {
+      "id": 169,
+      "count": 1,
+      "name": "Software Tools"
+    },
+    {
+      "id": 474,
+      "count": 1,
+      "name": "State Management"
+    },
+    {
+      "id": 490,
+      "count": 1,
+      "name": "state management in LangGraph"
+    },
+    {
+      "id": 495,
+      "count": 1,
+      "name": "structured JSON"
+    },
+    {
+      "id": 503,
+      "count": 1,
+      "name": "structured outputs in local LLMs"
+    },
+    {
+      "id": 475,
+      "count": 1,
+      "name": "System Design"
+    },
+    {
+      "id": 164,
+      "count": 1,
+      "name": "Task Management"
+    },
+    {
+      "id": 447,
+      "count": 1,
+      "name": "Tavily"
+    },
+    {
+      "id": 320,
+      "count": 1,
+      "name": "Tech Education"
+    },
+    {
+      "id": 228,
+      "count": 1,
+      "name": "Technical SEO"
+    },
+    {
+      "id": 508,
+      "count": 1,
+      "name": "tools mode"
+    },
+    {
+      "id": 367,
+      "count": 1,
+      "name": "Transformer Architecture"
+    },
+    {
+      "id": 162,
+      "count": 1,
+      "name": "Trello"
+    },
+    {
+      "id": 129,
+      "count": 1,
+      "name": "udemy"
+    },
+    {
+      "id": 176,
+      "count": 1,
+      "name": "UI Design"
+    },
+    {
+      "id": 177,
+      "count": 1,
+      "name": "UI Design Trends"
+    },
+    {
+      "id": 207,
+      "count": 1,
+      "name": "UI Inspiration"
+    },
+    {
+      "id": 192,
+      "count": 1,
+      "name": "UI Trends"
+    },
+    {
+      "id": 191,
+      "count": 1,
+      "name": "UI UX"
+    },
+    {
+      "id": 178,
+      "count": 1,
+      "name": "UI UX Design"
+    },
+    {
+      "id": 209,
+      "count": 1,
+      "name": "User-Centered Design"
+    },
+    {
+      "id": 210,
+      "count": 1,
+      "name": "UX Best Practices"
+    },
+    {
+      "id": 182,
+      "count": 1,
+      "name": "UX Design"
+    },
+    {
+      "id": 185,
+      "count": 1,
+      "name": "UX Design Trends"
+    },
+    {
+      "id": 215,
+      "count": 1,
+      "name": "UX Research"
+    },
+    {
+      "id": 193,
+      "count": 1,
+      "name": "UX Trends"
+    },
+    {
+      "id": 211,
+      "count": 1,
+      "name": "Visual Design"
+    },
+    {
+      "id": 194,
+      "count": 1,
+      "name": "Web Design Trends"
+    },
+    {
+      "id": 121,
+      "count": 1,
+      "name": "Web Development"
+    },
+    {
+      "id": 441,
+      "count": 1,
+      "name": "Web Search AI"
+    },
+    {
+      "id": 229,
+      "count": 1,
+      "name": "Website Optimization"
+    },
+    {
+      "id": 231,
+      "count": 1,
+      "name": "Website Traffic"
+    },
+    {
+      "id": 323,
+      "count": 1,
+      "name": "What Is an AI Agent"
+    },
+    {
+      "id": 410,
+      "count": 1,
+      "name": "Windsurf AI"
+    },
+    {
+      "id": 445,
+      "count": 1,
+      "name": "Zero Cost AI"
+    },
+    {
+      "id": 21,
+      "count": 0,
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": 200,
+      "count": 0,
+      "name": "Accessibility"
+    },
+    {
+      "id": 141,
+      "count": 0,
+      "name": "AI Productivity Tools"
+    },
+    {
+      "id": 150,
+      "count": 0,
+      "name": "AI Workplace Tools"
+    },
+    {
+      "id": 22,
+      "count": 0,
+      "name": "altın"
+    },
+    {
+      "id": 195,
+      "count": 0,
+      "name": "App Design"
+    },
+    {
+      "id": 23,
+      "count": 0,
+      "name": "asdasdasdasdasdas"
+    },
+    {
+      "id": 144,
+      "count": 0,
+      "name": "Best Apps for Work"
+    },
+    {
+      "id": 102,
+      "count": 0,
+      "name": "Biotechnology"
+    },
+    {
+      "id": 98,
+      "count": 0,
+      "name": "Blockchain"
+    },
+    {
+      "id": 24,
+      "count": 0,
+      "name": "d"
+    },
+    {
+      "id": 214,
+      "count": 0,
+      "name": "Dashboard Design"
+    },
+    {
+      "id": 25,
+      "count": 0,
+      "name": "dd"
+    },
+    {
+      "id": 26,
+      "count": 0,
+      "name": "ddfs"
+    },
+    {
+      "id": 27,
+      "count": 0,
+      "name": "deneme"
+    },
+    {
+      "id": 198,
+      "count": 0,
+      "name": "Design Systems"
+    },
+    {
+      "id": 208,
+      "count": 0,
+      "name": "Design Thinking"
+    },
+    {
+      "id": 28,
+      "count": 0,
+      "name": "df"
+    },
+    {
+      "id": 29,
+      "count": 0,
+      "name": "dfdf"
+    },
+    {
+      "id": 203,
+      "count": 0,
+      "name": "Digital Design"
+    },
+    {
+      "id": 145,
+      "count": 0,
+      "name": "Digital Productivity"
+    },
+    {
+      "id": 217,
+      "count": 0,
+      "name": "Digital Products"
+    },
+    {
+      "id": 30,
+      "count": 0,
+      "name": "e2e22e"
+    },
+    {
+      "id": 154,
+      "count": 0,
+      "name": "Essential Productivity Software"
+    },
+    {
+      "id": 31,
+      "count": 0,
+      "name": "Etiket"
+    },
+    {
+      "id": 32,
+      "count": 0,
+      "name": "etiket, kapak, toka, incik, hokkoboz, müslümbüz,"
+    },
+    {
+      "id": 213,
+      "count": 0,
+      "name": "Future of Design"
+    },
+    {
+      "id": 103,
+      "count": 0,
+      "name": "Future of Work"
+    },
+    {
+      "id": 33,
+      "count": 0,
+      "name": "geoit"
+    },
+    {
+      "id": 34,
+      "count": 0,
+      "name": "geoit tema"
+    },
+    {
+      "id": 99,
+      "count": 0,
+      "name": "Green Technology"
+    },
+    {
+      "id": 204,
+      "count": 0,
+      "name": "Human-Centered Design"
+    },
+    {
+      "id": 196,
+      "count": 0,
+      "name": "Inclusive Design"
+    },
+    {
+      "id": 201,
+      "count": 0,
+      "name": "Interaction Design"
+    },
+    {
+      "id": 202,
+      "count": 0,
+      "name": "Interface Design"
+    },
+    {
+      "id": 35,
+      "count": 0,
+      "name": "kelebek"
+    },
+    {
+      "id": 212,
+      "count": 0,
+      "name": "Mobile UI"
+    },
+    {
+      "id": 205,
+      "count": 0,
+      "name": "Modern Design"
+    },
+    {
+      "id": 188,
+      "count": 0,
+      "name": "Motion Design"
+    },
+    {
+      "id": 140,
+      "count": 0,
+      "name": "Productivity Apps"
+    },
+    {
+      "id": 148,
+      "count": 0,
+      "name": "Productivity Software for Business"
+    },
+    {
+      "id": 147,
+      "count": 0,
+      "name": "Productivity Software for Students"
+    },
+    {
+      "id": 142,
+      "count": 0,
+      "name": "Productivity Tools 2026"
+    },
+    {
+      "id": 149,
+      "count": 0,
+      "name": "Project Management Tools"
+    },
+    {
+      "id": 97,
+      "count": 0,
+      "name": "Quantum Computing"
+    },
+    {
+      "id": 100,
+      "count": 0,
+      "name": "Robotics"
+    },
+    {
+      "id": 36,
+      "count": 0,
+      "name": "s"
+    },
+    {
+      "id": 37,
+      "count": 0,
+      "name": "sadasdasd"
+    },
+    {
+      "id": 38,
+      "count": 0,
+      "name": "sdfd sdfsdf dsfsdfsd"
+    },
+    {
+      "id": 39,
+      "count": 0,
+      "name": "sfs"
+    },
+    {
+      "id": 104,
+      "count": 0,
+      "name": "Smart Cities"
+    },
+    {
+      "id": 143,
+      "count": 0,
+      "name": "Software for Productivity"
+    },
+    {
+      "id": 153,
+      "count": 0,
+      "name": "Task Management Software"
+    },
+    {
+      "id": 106,
+      "count": 0,
+      "name": "Technology 2026"
+    },
+    {
+      "id": 107,
+      "count": 0,
+      "name": "Technology Trends"
+    },
+    {
+      "id": 40,
+      "count": 0,
+      "name": "tesla"
+    },
+    {
+      "id": 41,
+      "count": 0,
+      "name": "testtt"
+    },
+    {
+      "id": 183,
+      "count": 0,
+      "name": "User Experience"
+    },
+    {
+      "id": 181,
+      "count": 0,
+      "name": "User Interface"
+    },
+    {
+      "id": 179,
+      "count": 0,
+      "name": "Web Design"
+    },
+    {
+      "id": 109,
+      "count": 0,
+      "name": "Web3"
+    },
+    {
+      "id": 42,
+      "count": 0,
+      "name": "wordpress"
+    },
+    {
+      "id": 146,
+      "count": 0,
+      "name": "Work Management Software"
+    },
+    {
+      "id": 152,
+      "count": 0,
+      "name": "Work Smarter"
+    }
+  ]
+}

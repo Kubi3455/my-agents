@@ -1,0 +1,234 @@
+<!-- wp:paragraph --><p>The first long agent run I lost wasn't taken down by some clever bug. The LLM provider just stopped answering at step four of a five-step research pipeline. The exception bubbled up, my script died, and every search call and summary from steps one through three went with it. All of it had lived in a Python dict in memory. I'd paid for those tokens twice by the end of the afternoon, and that was the week I finally took LangGraph checkpointing seriously.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've built anything with LangGraph that runs longer than a few seconds, you've either hit this or you will. APIs time out. Containers get recycled. Someone closes the laptop lid. It's the boring cousin of the <a href="https://www.firstevolvenextscale.com/debugging-ai-agents/">multi-agent failures I wrote about when agents get stuck in infinite loops</a>, and honestly it's more common.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Checkpointing is the fix. It's also one of the better-designed parts of the framework. Below is how it actually works, the exact code I used to crash an agent on purpose and bring it back, and the mistakes that cost me the most time.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What LangGraph Checkpointing Actually Saves</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A checkpointer is just a storage backend you hand to the graph when you compile it. After every super-step (one "tick" of the graph, where all the nodes scheduled for that tick run), LangGraph writes a snapshot of the entire state to that backend.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Every snapshot. Not just the last one.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That detail is what makes two very different features possible: resuming after a crash, and going back in time to replay an earlier decision. We'll use both.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Threads and the thread_id</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Snapshots are grouped by a <code>thread_id</code> that you pass in the config. Think of a thread as one conversation, one job, one article being written. Same <code>thread_id</code>, same history. New <code>thread_id</code>, clean slate.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>In practice I just use whatever ID my system already has for the unit of work: a job ID, a ticket number, a user session. Don't invent a second ID scheme just for LangGraph. You'll regret it the first time you need to find a thread at 2 a.m.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's inside a snapshot</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>When you call <code>graph.get_state(config)</code> you get a <code>StateSnapshot</code> back. The fields I actually look at day to day:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list"><li><code>values</code>: the state itself, exactly as your nodes left it</li><li><code>next</code>: which node(s) will run next. Empty tuple means the run finished</li><li><code>config</code>: includes the <code>checkpoint_id</code>, which is your handle for time travel</li><li><code>metadata</code>: things like the <code>step</code> number, handy when you're reading history</li></ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>If <code>next</code> isn't empty after an exception, you have something to resume. That one check has saved me more debugging time than any logging setup.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Crashing an Agent on Purpose (and Resuming It)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Enough theory. Here's a tiny two-node pipeline: a <code>research</code> step that stands in for an expensive LLM call, and a <code>write</code> step that fails the first time with a fake timeout. I ran this with LangGraph 1.2 and the SQLite checkpointer.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>pip install langgraph langgraph-checkpoint-sqlite</code></pre><!-- /wp:code -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import sqlite3
+from typing import TypedDict
+
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+
+class State(TypedDict):
+    topic: str
+    research: str
+    draft: str
+
+
+calls = {"research": 0, "write": 0}
+CRASH = {"on": True}
+
+
+def research(state: State):
+    calls["research"] += 1
+    print("  research node running (expensive call)")
+    return {"research": f"notes about {state['topic']}"}
+
+
+def write(state: State):
+    calls["write"] += 1
+    if CRASH["on"]:
+        raise ConnectionError("LLM provider timed out")
+    return {"draft": f"Draft based on: {state['research']}"}
+
+
+builder = StateGraph(State)
+builder.add_node("research", research)
+builder.add_node("write", write)
+builder.add_edge(START, "research")
+builder.add_edge("research", "write")
+builder.add_edge("write", END)
+
+conn = sqlite3.connect("checkpoints.db", check_same_thread=False)
+graph = builder.compile(checkpointer=SqliteSaver(conn))
+config = {"configurable": {"thread_id": "article-42"}}
+
+# First run: crashes inside "write"
+try:
+    graph.invoke({"topic": "checkpointing"}, config)
+except ConnectionError as e:
+    print("crashed:", e)
+
+snap = graph.get_state(config)
+print("next:", snap.next)
+print("values:", snap.values)
+
+# Provider is back. Resume the SAME thread with None as input.
+CRASH["on"] = False
+result = graph.invoke(None, config)
+print("result:", result)
+print("calls:", calls)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>And here's what it printed on my machine:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>  research node running (expensive call)
+crashed: LLM provider timed out
+next: ('write',)
+values: {'topic': 'checkpointing', 'research': 'notes about checkpointing'}
+result: {'topic': 'checkpointing', 'research': 'notes about checkpointing', 'draft': 'Draft based on: notes about checkpointing'}
+calls: {'research': 1, 'write': 2}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Look at the last line. <code>research</code> ran once. The expensive part didn't repeat. Only the node that actually failed ran again.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The line that trips people up is <code>graph.invoke(None, config)</code>. Passing <code>None</code> as the input feels wrong the first time you see it. What it means is: don't start a new run, pick up this thread from its latest checkpoint and keep going. Pass a real input instead and you're starting a fresh run on top of the saved state, which is a different thing entirely.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Quick aside: the same pattern works when the "crash" is a local model choking under load. If you're running agents against Ollama like in my <a href="https://www.firstevolvenextscale.com/local-llms-ollama-with-web-search/">guide to connecting local LLMs with web search</a>, timeouts on a busy laptop are pretty much guaranteed, so this is worth wiring in early.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">InMemorySaver vs SqliteSaver vs PostgresSaver</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>LangGraph ships a few checkpointers, and the choice matters more than it looks. The short version:</p><!-- /wp:paragraph -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Checkpointer</th><th>Package</th><th>Survives a restart?</th><th>Where I use it</th></tr></thead><tbody><tr><td><code>InMemorySaver</code></td><td>built into <code>langgraph</code></td><td>No</td><td>Unit tests, notebooks</td></tr><tr><td><code>SqliteSaver</code></td><td><code>langgraph-checkpoint-sqlite</code></td><td>Yes (one file)</td><td>Local dev, single-process scripts, cron jobs</td></tr><tr><td><code>AsyncSqliteSaver</code></td><td><code>langgraph-checkpoint-sqlite</code></td><td>Yes</td><td>Async apps that still fit on one machine</td></tr><tr><td><code>PostgresSaver</code></td><td><code>langgraph-checkpoint-postgres</code></td><td>Yes</td><td>Production, multiple workers</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>My honest take: skip <code>InMemorySaver</code> for anything you'll run more than once. It looks like persistence, it behaves like persistence in your tests, and then the process restarts and everything is gone. I'd start with SQLite on day one. It's a single file, you can open it with any SQLite browser, and moving to Postgres later is mostly a one-line change.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One thing to remember with Postgres: call <code>checkpointer.setup()</code> once so it creates its tables. The <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">official LangGraph persistence docs</a> cover the connection details, and the SQLite package lives on <a href="https://pypi.org/project/langgraph-checkpoint-sqlite/" target="_blank" rel="noopener">PyPI as langgraph-checkpoint-sqlite</a>.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Durability Modes: How Often LangGraph Writes to Disk</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>This is the part almost nobody mentions, and it changes what "resumable" really means. You can pass <code>durability</code> to <code>invoke</code> or <code>stream</code>, with three options:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list"><li><code>"sync"</code> writes each checkpoint before the next step starts. Safest, slowest.</li><li><code>"async"</code> writes while the next step is already running. Faster, with a small window where a hard crash can lose the latest checkpoint. This is the default.</li><li><code>"exit"</code> only writes when the graph exits, whether it finished, errored, or hit an interrupt.</li></ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>I wanted to see the difference for myself, so I ran the same crashing graph once per mode and counted the saved checkpoints:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>sync  -> next=('nb',) a='done' checkpoints=3
+async -> next=('nb',) a='done' checkpoints=3
+exit  -> next=('nb',) a='done' checkpoints=1</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Interesting, right? With a normal Python exception, all three modes could resume, because <code>"exit"</code> still saves on the way out. What <code>"exit"</code> threw away was the history. One checkpoint instead of three means no time travel.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>And a raised exception is the friendly case. If the process gets killed outright (out-of-memory, a container restart, a power cut), there's no "on the way out." The <a href="https://docs.langchain.com/oss/python/langgraph/durable-execution" target="_blank" rel="noopener">durable execution docs</a> say it plainly: with <code>"exit"</code>, intermediate state isn't saved, so you can't recover from a crash mid-run. My rule: <code>"sync"</code> for anything that costs real money per step, the default <code>"async"</code> for everything else, and <code>"exit"</code> only for short graphs where speed genuinely matters.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Time Travel: Replaying and Forking an Old Checkpoint</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Because every super-step is saved, you can walk back through a thread's history, pick an older checkpoint, change the state, and run forward from there. It's the closest thing to a debugger that agents have.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from typing import TypedDict
+
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+
+class S(TypedDict):
+    n: int
+
+
+def inc(s: S):
+    return {"n": s["n"] + 1}
+
+
+b = StateGraph(S)
+b.add_node("inc", inc)
+b.add_edge(START, "inc")
+b.add_edge("inc", END)
+g = b.compile(checkpointer=InMemorySaver())
+
+cfg = {"configurable": {"thread_id": "t1"}}
+g.invoke({"n": 0}, cfg)
+
+# Find the checkpoint right before "inc" ran
+history = list(g.get_state_history(cfg))
+before_inc = next(h for h in history if h.next == ("inc",))
+
+# Fork it with different state, then run forward from the fork
+forked = g.update_state(before_inc.config, {"n": 100})
+print(g.invoke(None, forked))  # {'n': 101}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Where this really pays off is debugging a bad decision deep inside a run. Say your router picked the wrong agent at step 7. Instead of rerunning all seven steps and hoping it happens again, you fork step 6, tweak the state, and watch what the router does. I use this constantly when <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging multi-agent workflows in CrewAI and LangGraph</a>. The <a href="https://docs.langchain.com/oss/python/langgraph/use-time-travel" target="_blank" rel="noopener">time travel guide</a> has more patterns.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Checkpointing is also what makes interrupts work. If you want an agent to pause and wait for a person to approve something, that pause has to be stored somewhere, which is exactly what the checkpointer does. I went deeper on that in <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">human-in-the-loop for AI workflows</a>.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls With LangGraph Checkpointing</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Forgetting the thread_id</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Compile with a checkpointer, call <code>invoke</code> without a config, and you get this:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>ValueError: Checkpointer requires one or more of the following 'configurable' keys: thread_id, checkpoint_ns, checkpoint_id</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>At least it's loud. Annoying in a notebook, but I'd rather have that than silent state loss.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Sharing a SQLite connection across threads</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Plain <code>sqlite3.connect()</code> refuses to be used from a different thread than the one that created it. The moment your graph runs inside a web server or a thread pool, you'll see:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>ProgrammingError: SQLite objects created in a thread can only be used in that same thread.</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That's why the example above uses <code>check_same_thread=False</code>. It's fine for light use. If you have real concurrency, that's your signal to move to <code>AsyncSqliteSaver</code> or Postgres, not to pile on locks.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Side effects that run twice</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Look back at the crash demo: <code>write</code> ran twice. That was harmless there. Now imagine the node sends an email, then crashes on the line after. On resume, the whole node runs again, and your customer gets two emails.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Checkpoints are saved between steps, not inside them. So I keep each side effect in its own small node, and I make those nodes idempotent where I can (an idempotency key on the API call, or a "did I already send this?" check). The same thinking applies to retries in general, which I covered in <a href="https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/">practical retry and exit strategies for AI agents</a>.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Reusing a thread_id by accident</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you invoke a finished thread with fresh input, LangGraph doesn't start from zero. It starts from that thread's saved state. With a message list, that means yesterday's conversation quietly leaks into today's run. Use a new <code>thread_id</code> per job unless you actually want continuity.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">When Checkpointing Isn't Enough</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>I like this feature a lot, but it has limits worth knowing before you lean on it:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list"><li><strong>It doesn't make LLMs deterministic.</strong> Resume or replay a step and the model can give a different answer.</li><li><strong>It doesn't detect crashes for you.</strong> Something still has to notice the failed run and call <code>invoke(None, config)</code>. A cron job, a queue worker, a retry wrapper.</li><li><strong>Storage grows.</strong> Every super-step is a row. Long-running threads add up, so plan some cleanup.</li><li>Short-term state only. The checkpointer is per-thread. Long-term memory shared across threads belongs in a separate store.</li></ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>If you're still deciding between frameworks, this is one area where LangGraph is noticeably ahead in my experience. My <a href="https://www.firstevolvenextscale.com/autogpt-vs-crewai-vs-langgraph/">AutoGPT vs CrewAI vs LangGraph comparison</a> goes into the trade-offs.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If I were starting a LangGraph project today, here's what I'd do before writing a single prompt: SqliteSaver from day one, <code>thread_id</code> set to the job ID I already have, <code>durability="sync"</code> on anything that burns paid tokens, and one side effect per node.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That's maybe fifteen minutes of setup. LangGraph checkpointing won't make your agent smarter, but it means the next timeout costs you one step instead of the whole run. Try the crash demo above with your own graph. Break it on purpose once, and you'll trust it a lot more when it breaks for real.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How do I resume a LangGraph agent after a crash?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Call <code>graph.invoke(None, config)</code> with the same <code>thread_id</code> as the failed run. LangGraph loads the latest checkpoint and continues from the node that didn't finish.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does resuming re-run nodes that already finished?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>No. Nodes completed in earlier super-steps are skipped. The node that failed runs again from the start, which is why side effects inside it should be idempotent.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I use LangGraph checkpointing without a database?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Yes, with <code>InMemorySaver</code>, but everything disappears when the process stops. For anything beyond tests, SQLite is the lightest option that actually survives a restart.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the difference between a checkpointer and a store in LangGraph?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A checkpointer saves the state of one thread step by step. A store holds long-term memory that different threads can share, like user preferences. Most real apps end up using both.</p><!-- /wp:paragraph -->

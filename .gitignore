@@ -1,0 +1,6 @@
+# Raw AI images (optimized .webp/.jpg copies are kept)
+agents/*/outputs/**/*.png
+__pycache__/
+*.pyc
+.env
+*.db
