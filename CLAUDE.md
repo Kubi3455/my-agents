@@ -7,7 +7,7 @@ Multi-agent system powered by markdown files and Claude Code.
 | Agent | Path | Purpose |
 |-------|------|---------|
 | Standard Template | `agents/standard-agent/` | Copy this to create any new agent |
-| Blog Writer | `agents/blog-writer/` | firstevolvenextscale.com için her gün insan sesinde, SEO'lu, görselli İngilizce AI yazısı üretip WordPress'e taslak yükler |
+| Blog Writer | `agents/blog-writer/` | firstevolvenextscale.com için her gün insan sesinde, SEO'lu, görselli İngilizce AI yazısı üretir, kalite kapısı geçerse yayınlar ve Jetpack ile FB/IG/LinkedIn'e paylaşır |
 | Web Builder | `agents/web-builder/` | Üst düzey hareketli/görsel siteleri bulur, analiz eder, benzer kalitede özgün siteler üretir |
 
 ## Firma Verildiğinde (web-builder)
@@ -20,7 +20,7 @@ Kullanıcı sohbette bir firmanın bilgilerini verirse ("şu firma için site ya
 ## Blog Yazısı (blog-writer)
 
 - Günlük döngü: `agents/blog-writer/HEARTBEAT.md`. Ses kuralları: `agents/blog-writer/data/STYLE_GUIDE.md` → "İnsan Sesi" (öncelikli).
-- Yazılar yalnızca `draft` olarak yüklenir. `WP_USER`, `WP_APP_PASSWORD`, `OPENAI_API_KEY` ortam değişkenlerindedir; değerlerini hiçbir dosyaya yazma.
+- Yazılar kalite kapısı (`wp_client.py` → `quality_gate`) geçerse otomatik yayınlanır, geçmezse taslak kalır. `WP_USER`, `WP_APP_PASSWORD`, `OPENAI_API_KEY` ortam değişkenlerindedir; değerlerini hiçbir dosyaya yazma.
 
 ## Key Directories
 

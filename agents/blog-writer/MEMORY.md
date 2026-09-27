@@ -8,6 +8,10 @@
 ## Konu Seçimi
 - 2026-09-27: Son 2 ayın en tutarlı kümesi "agent loops / debugging multi-agent / local LLM". Bu kümede iç link ağı kurmak kolay.
 
+## Yayın
+- 2026-09-28 (kullanıcı kararı): Taslak değil otomatik yayın. Güvenlik: script içindeki quality_gate; önce draft, sonra ayrı istekle publish (Jetpack paylaşımı son meta+görselle tetiklensin).
+- 2026-09-28: Jetpack REST meta anahtarları doğrulandı: jetpack_publicize_message, jetpack_publicize_feature_enabled, jetpack_social_options, jetpack_social_post_already_shared.
+
 ## SEO
 - 2026-09-28 (kullanıcı kuralı): Her yazıya SEO ile birlikte yazıya özel 10 etiket. `wp_client.py` → `MAX_TAGS = 10`.
 - 2026-09-28: Rank Math tag arşivlerini `noindex, follow` yapıyor; sitemap_index.xml Rank Math'ten geliyor.

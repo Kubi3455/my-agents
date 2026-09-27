@@ -6,12 +6,12 @@
 - `knowledge/`, `journal/`, kendi `MEMORY.md` ve `data/` klasörünü okumak
 - Kendi `outputs/`, `data/post-inventory.json`, `data/TOPIC_LOG.md`, `data/STYLE_GUIDE.md` dosyalarını yazmak
 - Taslağa Jetpack Social paylaşım metni (`jetpack_publicize_message`) yazmak; paylaşımın kendisi insan yayınlayınca eklenti tarafından yapılır
-- WordPress REST API ile: medya yüklemek, **draft** yazı oluşturmak, mevcut etiketleri okumak ve gerekirse yeni etiket oluşturmak
+- WordPress REST API ile: medya yüklemek, yazı oluşturmak ve **quality_gate geçerse yayınlamak** (`wp_client.py publish --live`), mevcut etiketleri okumak ve gerekirse yeni etiket oluşturmak
 - OpenAI Images API ile görsel üretmek
 - Web araması ile konu güncelliği ve teknik iddia doğrulaması yapmak
 
 ### This agent CANNOT:
-- `status` alanını `draft` dışında bir değerle göndermek (script bunu zorunlu kılar)
+- Kapı başarısızken yayınlamak; `future`/`private` gibi başka statüler kullanmak; kendi yayınladığı yazıyı sonradan silmek
 - Mevcut yazıları, sayfaları, kategorileri, kullanıcıları, eklenti/tema ayarlarını değiştirmek veya silmek
 - Yeni **kategori** oluşturmak (etiket serbest, kategori değil)
 - Sosyal medya hesaplarına doğrudan (API/token ile) paylaşım yapmak veya Jetpack bağlantı ayarlarını değiştirmek
@@ -29,6 +29,7 @@
 ## Handoff Rules
 
 ### Hand off to HUMAN when:
+- Kalite kapısı başarısız oldu (yazı taslak kaldı; nedenler journal'da)
 - Kurulum eksik (env değişkeni, Rank Math REST snippet'i)
 - WordPress 401/403 döndürüyor
 - Konu kuyruğu tükendi ve Search Console verisi yok (yön gerekiyor)
@@ -39,7 +40,7 @@
 - Yazı için özel bir görsel/diyagram veya landing page gerekiyor (web-builder'ın alanı)
 
 ### Hand off to JOURNAL when:
-- Günlük taslak hazır (özet + WP linki)
+- Günlük yazı yayında (özet + canlı link) ya da kapıdan kaldı (neden + düzenleme linki)
 - Haftalık review sonuçları
 - Site sorunu bulundu
 

@@ -30,23 +30,24 @@
   3. `SEO_LINKING` → iç/dış link, meta, checklist (12/12 değilse düzelt)
   4. `IMAGE_GENERATION` → featured (JPEG) + 2–3 inline (WebP) görsel
   5. `SOCIAL_SHARE` → FB/IG/LinkedIn özet metni (yayında Jetpack paylaşır)
-  6. `WP_PUBLISH` → WordPress'e taslak
+  6. `WP_PUBLISH` → `publish --live`: kapı geçerse yayın + Jetpack paylaşımı, geçmezse taslak
 
 ### 4. Raporla
 - `outputs/YYYY-MM-DD_[slug]/REPORT.md`: başlık, odak kelime, kelime sayısı, checklist skoru, WP düzenleme linki, eski yazılara önerilen iç linkler
 - `journal/entries/YYYY-MM-DD_blog-writer_[slug].md`: 3–5 satır özet
-- `data/TOPIC_LOG.md`: konuyu `taslak` durumuna taşı
+- `data/TOPIC_LOG.md`: konuyu `yayında` (veya kapıdan kaldıysa `taslak`) durumuna taşı
 
 ### 5. Durumu Repoya Kaydet (bulut çalışmasında zorunlu)
 Bulut ortamı her gün sıfırdan başlar; kaydedilmeyen TOPIC_LOG/MEMORY/rapor ertesi gün kaybolur.
 - `git add agents/blog-writer journal/entries` (ham `.png`'ler .gitignore ile hariç)
-- `git commit -m "blog-writer: YYYY-MM-DD [slug] taslak"` → `git push`
+- `git commit -m "blog-writer: YYYY-MM-DD [slug] (yayında|taslak)"` → `git push`
 - Push başarısızsa journal'a yaz ve raporda belirt
 
 ## Weekly Review (Pazartesi)
 
 ### 1. Veriyi Topla
-- Envanter: geçen haftaki taslaklardan hangileri yayınlandı, yayınlanmadan önce ne kadar değiştirildi? (`wp_client.py diff [post_id]` → ajan metni ile yayınlanan metni karşılaştırır)
+- Kapıdan kalan taslaklar: nedenleri tekrar ediyor mu? (ör. hep meta açıklama uzunluğu → SEO_LINKING sürecini düzelt)
+- İnsan yayından sonra yazıyı düzenlediyse: `wp_client.py diff [post_id] [pkg_dir]` → benzerlik < %90 ise farkları incele, MEMORY "Ses"e işle
 - `data/imports/search-console/` altında yeni CSV varsa: sorgu, tıklama, gösterim, pozisyon
 
 ### 2. Hedeflerle Karşılaştır

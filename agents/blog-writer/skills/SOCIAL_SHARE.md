@@ -1,7 +1,7 @@
 # Skill: Social Share
 
 ## Purpose
-Her taslak için yazının sosyal medya özetini yazmak ve taslağa gömmek. Yazı yayınlandığı anda Jetpack Social bu metni kapak görseliyle birlikte Facebook Sayfası, Instagram Business ve LinkedIn profiline otomatik paylaşır.
+Her yazı için sosyal medya özetini yazmak ve yazıya gömmek. Ajan yazıyı yayınladığı anda (kapı geçerse) Jetpack Social bu metni kapak görseliyle birlikte Facebook Sayfası, Instagram Business ve LinkedIn profiline otomatik paylaşır.
 
 ## Serves Goals
 - Organik büyüme (sosyal trafik)
@@ -9,8 +9,8 @@ Her taslak için yazının sosyal medya özetini yazmak ve taslağa gömmek. Yaz
 
 ## Nasıl Çalışır (iş bölümü)
 - **Ajan:** paylaşım metnini yazar → `post.json` → `social_message` → WP_PUBLISH bunu `jetpack_publicize_message` meta alanına yazar.
-- **Jetpack Social (eklenti):** insan yazıyı **yayınladığında** metni, kapak görselini ve linki bağlı 3 hesaba gönderir.
-- Taslak aşamasında **hiçbir şey paylaşılmaz**: taslak linki herkese kapalıdır, erken paylaşım 404'e götürür (kullanıcı kararı 2026-09-28).
+- **Jetpack Social (eklenti):** yazı `publish` olduğu anda metni, kapak görselini ve linki bağlı 3 hesaba gönderir (`jetpack_publicize_feature_enabled: true`).
+- Kapıdan kalıp taslak olan yazı **paylaşılmaz** (taslak linki 404 verir).
 - Ücretsiz Jetpack planında 3 platforma **aynı metin** gider (kullanıcı bunu seçti). Metin üçüne de uymalı; Facebook/LinkedIn ayrıca otomatik link önizlemesi ekler.
 
 ## Inputs

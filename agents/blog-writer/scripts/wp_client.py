@@ -3,7 +3,7 @@
 Commands:
   python wp_client.py check                      # auth + Rank Math meta check
   python wp_client.py inventory                  # -> data/post-inventory.json (public, no auth)
-  python wp_client.py publish <post.json>        # upload images + create DRAFT post
+  python wp_client.py publish <post.json> [--live]  # draft; --live publishes only if quality_gate passes
   python wp_client.py diff <post_id> <pkg_dir>   # how much the human edited our draft
 
 Env: WP_USER, WP_APP_PASSWORD (WordPress Application Password)
@@ -177,12 +177,58 @@ def image_block(media, img):
             f'class="wp-image-{media["id"]}"/>{figcap}</figure><!-- /wp:image -->')
 
 
-def cmd_publish(post_json):
+def quality_gate(pkg, pkg_dir, content_path):
+    """Checks that must pass before a post may go live without human review.
+    Returns a list of failure reasons (empty = OK to publish)."""
+    import contextlib, io
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import voice_check
+    fails = []
+    with contextlib.redirect_stdout(io.StringIO()):
+        if voice_check.main(content_path) != 0:
+            fails.append("voice_check failed")
+    q = pkg.get("quality", {})
+    if q.get("seo_checklist") != 12:
+        fails.append(f"seo_checklist {q.get('seo_checklist')}/12")
+    if q.get("human_voice_test") != 8:
+        fails.append(f"human_voice_test {q.get('human_voice_test')}/8")
+    if not q.get("images_reviewed"):
+        fails.append("images not visually reviewed")
+    if len(pkg.get("seo_title", "")) > 60:
+        fails.append("seo_title > 60 chars")
+    if not 140 <= len(pkg.get("meta_description", "")) <= 158:
+        fails.append("meta_description not 140-158 chars")
+    kw = pkg.get("focus_keyword", "").lower()
+    if not kw or kw not in pkg.get("title", "").lower():
+        fails.append("focus keyword missing from title")
+    if len(pkg.get("tags", [])) != MAX_TAGS:
+        fails.append(f"tags != {MAX_TAGS}")
+    imgs = pkg.get("images", [])
+    feat = [i for i in imgs if i["key"] == "featured"]
+    if not feat or not feat[0]["file"].lower().endswith((".jpg", ".jpeg")):
+        fails.append("featured image missing or not JPEG (Instagram needs JPEG)")
+    if len(imgs) - len(feat) < 2:
+        fails.append("fewer than 2 inline images")
+    if any(not i.get("alt") or not os.path.exists(os.path.join(pkg_dir, i["file"])) for i in imgs):
+        fails.append("image file or alt text missing")
+    taken = call("GET", f"/posts?slug={urllib.parse.quote(pkg.get('slug', ''))}&status=any&_fields=id")
+    if taken:
+        fails.append(f"slug already used by post {taken[0]['id']} (WP would rename it and the social link would 404)")
+    msg = pkg.get("social_message", "")
+    if f"/{pkg.get('slug')}/" not in msg or "Link in bio" not in msg or len(re.findall(r"#\w+", msg)) != 6:
+        fails.append("social_message template not followed (link / link in bio / 6 hashtags)")
+    return fails
+
+
+def cmd_publish(post_json, *flags):
+    live = "--live" in flags
     pkg_dir = os.path.dirname(os.path.abspath(post_json))
     with open(post_json, encoding="utf-8") as f:
         pkg = json.load(f)
-    with open(os.path.join(pkg_dir, pkg.get("content_file", "content.html")), encoding="utf-8") as f:
+    content_path = os.path.join(pkg_dir, pkg.get("content_file", "content.html"))
+    with open(content_path, encoding="utf-8") as f:
         content = f.read()
+    gate_fails = quality_gate(pkg, pkg_dir, content_path) if live else []
 
     cats = {c["name"].lower(): c["id"] for c in get_all("/categories?_fields=id,name", auth=True)}
     cat_id = cats.get(pkg["category"].lower())
@@ -221,12 +267,13 @@ def cmd_publish(post_json):
     }
     if pkg.get("social_message"):
         meta[SOCIAL_MESSAGE_KEY] = pkg["social_message"]
+        meta["jetpack_publicize_feature_enabled"] = True
     post = call("POST", "/posts", payload={
         "title": pkg["title"],
         "slug": pkg["slug"],
         "content": content,
         "excerpt": pkg.get("excerpt", ""),
-        "status": "draft",  # hard rule: this agent never publishes
+        "status": "draft",  # always draft first; published below only after checks
         "categories": [cat_id],
         "tags": tag_ids,
         "featured_media": featured_id or 0,
@@ -238,9 +285,22 @@ def cmd_publish(post_json):
 
     saved = call("GET", f"/posts/{post['id']}?context=edit").get("meta", {})
     meta_ok = all(saved.get(k) == v for k, v in meta.items())
+    if live and not meta_ok:
+        gate_fails.append("post meta (Rank Math / social message) not saved")
+
+    # Publish as a separate step, like a human clicking "Publish" after saving the draft,
+    # so Jetpack Social sees the final meta + featured image when the share fires.
+    status, public_link = "draft", None
+    if live and not gate_fails:
+        done = call("POST", f"/posts/{post['id']}", payload={"status": "publish"})
+        status, public_link = done["status"], done["link"]
+        if done["slug"] != pkg["slug"]:  # WP renamed a duplicate slug -> social link would 404
+            print(f"WARN: slug changed to {done['slug']}; social_message link is wrong")
     result = {
         "post_id": post["id"],
-        "status": post["status"],
+        "status": status,
+        "gate_failures": gate_fails,
+        "public_link": public_link,
         "edit_link": f"{SITE}/wp-admin/post.php?post={post['id']}&action=edit",
         "preview_link": post.get("link"),
         "featured_media": featured_id,
@@ -251,7 +311,10 @@ def cmd_publish(post_json):
         json.dump(result, f, indent=2)
     print(json.dumps(result, indent=2))
     if not meta_ok:
-        print("WARN: rank math meta was not saved; enter SEO fields manually (see REPORT.md)")
+        print("WARN: post meta was not saved; enter SEO fields manually (see REPORT.md)")
+    if live and gate_fails:
+        print("GATE FAILED -> kept as draft:", "; ".join(gate_fails))
+        return 3
     return 0
 
 
