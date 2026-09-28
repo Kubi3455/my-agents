@@ -19,7 +19,7 @@
 - 2026-09-27: API'ye her zaman `www.` ile istek at; www'suz adres 301 yönlendiriyor ve POST'ta Authorization düşüyor.
 
 ## Görsel
-- 2026-09-28: Detaylı prompt + featured `high` ile v2 kapak: numaralı adım başlıkları, lejant kutusu, tüm yazılar doğru. Hedef standart bu seviye (kullanıcı onayı bekleniyor). PNG 1.9 MB → JPEG 127 KB.
+- 2026-09-28: Detaylı prompt + featured `high` ile v2 kapak: numaralı adım başlıkları, lejant kutusu, tüm yazılar doğru. Hedef standart bu seviye (kullanıcı yayınladı = onaylandı). PNG 1.9 MB → JPEG 127 KB.
 - 2026-09-28 (kullanıcı geri bildirimi): İlk seri "çok basit" bulundu. Artık detaylı, konuyu anlatan infografik sahneler + 2–4 kısa etiket; featured high kalite.
 - 2026-09-28: gpt-image-2 (1536x1024, medium) prompt'taki "no text, no letters, no numbers" ile temiz çıktı verdi; 3/3 ilk denemede kabul.
 - 2026-09-28: optimize_image.py ile PNG 1.5–1.7 MB → WebP 16–27 KB, gözle kayıp yok.
