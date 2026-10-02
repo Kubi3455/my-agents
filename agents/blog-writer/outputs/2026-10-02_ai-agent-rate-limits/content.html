@@ -1,0 +1,201 @@
+<!-- wp:paragraph --><p>Three weeks ago I kicked off an overnight CrewAI run against a model API with a generous-sounding &#8220;enterprise&#8221; quota. Forty research agents, fanning out in parallel, each one calling the model half a dozen times to plan, search, and summarize. I woke up to a wall of red: HTTP 429, AI agent rate limits blowing past every retry, for six straight hours, with the job maybe a third done.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've scaled a single-agent prototype into anything with more than one worker hitting the same model, you already know this feeling. It's the same sinking one I had the weekend I spent chasing <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">infinite loops in CrewAI and LangGraph</a>, except this time the agents weren't stuck. They were just all talking to the model at once, slamming straight into AI agent rate limits, and the error messages rarely tell you what actually went wrong.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what actually causes AI agent rate limits to blow up a pipeline, how to tell a 429 you should retry from one you shouldn't, and the backoff, concurrency, and idempotency code that stopped mine from DDoS-ing itself the second time around.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why AI Agent Rate Limits Hit Harder Than a Single API Call</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A chatbot makes one model call per user turn. An agent pipeline makes a dozen. Plan the task, call a tool, read the result, decide whether to call another tool, summarize, maybe hand off to a second agent that repeats the whole thing. Multiply that by however many agents you're running concurrently and the request count stops looking like your traffic and starts looking like a load test against someone else's API.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The math gets ugly fast. Fan out to roughly twenty model calls per task, and twenty-five concurrent tasks can saturate a 500-requests-per-minute quota before a single retry even fires. I'd read that number before I built my own pipeline and thought it sounded pessimistic. It isn't. I counted mine afterward: twenty-three calls per task, mostly tool-use round trips I hadn't accounted for.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Some of that overhead isn't even your prompt. If you've got a handful of MCP servers wired into the same agent, the <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">tool definitions alone can eat a third of your context window</a> before the model reads your actual request, which means more input tokens per call, which eats into the token-per-minute side of the same rate limit. Burning your budget on definitions you don't use in that turn is its own kind of self-inflicted 429.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>My instinct, given that history, was to blame the agent logic again. It wasn't the logic. It was volume, and volume needs a different fix than a broken exit condition does.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">What a 429 Actually Tells You (Read the Body, Not Just the Status Code)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the confusing part: not every 429 means the same thing, and treating them all as "wait and retry" is how people burn through their retry budget on an error that will never succeed no matter how long they wait.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Anthropic's API returns a 429 for an ordinary rate limit, with a <code>retry-after</code> header telling you how many seconds to wait. But it also returns a 429 when you've crossed your organization's monthly spend cap, and that response has no <code>retry-after</code> header at all, because waiting won't help. The body looks like this:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>{
+  "type": "error",
+  "error": {
+    "type": "rate_limit_error",
+    "message": "You have reached your API usage limits: your organization has crossed its monthly API usage threshold...",
+    "details": { "error_code": "enforced_spend_limit_reached" }
+  },
+  "request_id": "req_018EeWyXxfu5pfWkrYcMdjWG"
+}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Same <code>error.type</code> as a normal rate limit. The only thing that tells you it's hopeless is <code>error.details.error_code</code>. Retry that one on a loop and you'll just burn through your attempt budget waiting for a reset that was never coming this month.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>OpenAI's <a href="https://developers.openai.com/api/docs/guides/error-codes">error code reference</a> splits it differently. A genuine rate limit comes back as a 429 with <code>type: "rate_limit_error"</code> and <code>code: "slow_down"</code>, and the docs note this can fire "even when your traffic is within its requests-per-minute and tokens-per-minute limits," because short bursts get smoothed, not measured at face value. Model overload is a separate case entirely: a 503 with <code>type: "service_unavailable_error"</code> and <code>code: "server_is_overloaded"</code>. That one is also worth retrying, just on a longer, lazier backoff, since it's a capacity problem on their end, not a limit on yours.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The practical rule I use now: check the error code before you decide to retry, not just the status code. A 429 is not a monolith.</p><!-- /wp:paragraph -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Provider</th><th>Remaining-capacity headers</th><th>Reset time header</th><th>Retry hint</th></tr></thead>
+<tbody>
+<tr><td>Anthropic</td><td><code>anthropic-ratelimit-requests-remaining</code>, <code>anthropic-ratelimit-input-tokens-remaining</code>, <code>anthropic-ratelimit-output-tokens-remaining</code></td><td><code>anthropic-ratelimit-*-reset</code> (RFC 3339)</td><td><code>retry-after</code> (seconds; absent on spend-cap 429s)</td></tr>
+<tr><td>OpenAI</td><td><code>x-ratelimit-remaining-requests</code>, <code>x-ratelimit-remaining-tokens</code></td><td><code>x-ratelimit-reset-requests</code>, <code>x-ratelimit-reset-tokens</code></td><td><code>Retry-After</code> (seconds, when present)</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Backoff With Jitter, Done Right</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>You'll see people recommend a flat "sleep 5 seconds and try again." It works, until five agents hit the same limit at the same moment, sleep the same five seconds, and slam the API again in perfect unison. That's a thundering herd, and it's self-inflicted.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I use <a href="https://tenacity.readthedocs.io/en/latest/">tenacity</a> for this instead of hand-rolling it, mostly because I trust a library that's been through more edge cases than my Tuesday-afternoon implementation has. The part that actually matters is telling it which exceptions deserve a retry and which don't:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from tenacity import (
+    retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
+)
+
+class RateLimitError(Exception):
+    """Transient: requests-per-minute or tokens-per-minute cap."""
+
+class QuotaExceededError(Exception):
+    """Permanent for now: spend cap or monthly quota. Don't retry."""
+
+@retry(
+    wait=wait_random_exponential(multiplier=1, max=30),
+    stop=stop_after_attempt(5),
+    retry=retry_if_exception_type(RateLimitError),
+    reraise=True,
+)
+def call_model(prompt: str) -> str:
+    response = client.send(prompt)
+    if response.status_code == 429:
+        code = response.json()["error"].get("details", {}).get("error_code", "")
+        if code == "enforced_spend_limit_reached":
+            raise QuotaExceededError(response.text)
+        raise RateLimitError(response.text)
+    return response.json()["content"]</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p><code>wait_random_exponential</code> is the jitter part: each retry waits roughly double the last one, plus a random amount, so five agents that failed together don't retry together. <code>retry_if_exception_type(RateLimitError)</code> is the part that stops a quota error from eating five attempts for nothing; <code>QuotaExceededError</code> just isn't in that set, so it reraises on attempt one. I ran this against a mock client that fails twice then succeeds, and separately against one that always raises <code>QuotaExceededError</code>, before trusting it on a real pipeline. The second case should fail immediately, not after five sleeps.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd already written almost this exact pattern once before, for the <a href="https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/">retry and exit strategies</a> that keep an agent from looping forever on a bad tool call. Rate-limit backoff and loop-exit logic turn out to share a parent: both need a hard stop_after_attempt, or "retry until it works" quietly becomes "retry forever."</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Cap Concurrency Before You Even Hit the Wall</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Backoff fixes a 429 after it happens. The annoying part? By the time you're backing off, you've already wasted a request and however many seconds the retry costs. Capping how many agents can call the model at once is cheaper, because it prevents the error instead of recovering from it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Anthropic's rate limiter uses a <a href="https://platform.claude.com/docs/en/api/rate-limits">token bucket</a>: capacity refills continuously instead of resetting on a fixed clock tick. A simple client-side token bucket that mirrors the same idea keeps your fan-out under the ceiling without you having to guess at sleep durations:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import threading
+import time
+
+class TokenBucket:
+    def __init__(self, rate_per_minute: int, capacity: int):
+        self.rate_per_second = rate_per_minute / 60.0
+        self.capacity = capacity
+        self.tokens = float(capacity)
+        self.last_refill = time.monotonic()
+        self.lock = threading.Lock()
+
+    def acquire(self, cost: float = 1.0) -> None:
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                elapsed = now - self.last_refill
+                self.last_refill = now
+                self.tokens = min(self.capacity, self.tokens + elapsed * self.rate_per_second)
+                if self.tokens >= cost:
+                    self.tokens -= cost
+                    return
+            time.sleep(0.01)
+
+# 480 RPM budget, shared by every agent worker thread
+request_budget = TokenBucket(rate_per_minute=480, capacity=20)
+
+def call_with_budget(prompt: str) -> str:
+    request_budget.acquire()
+    return call_model(prompt)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Every worker calls <code>acquire()</code> before it touches the model, full stop. No budget left, no call, the thread just waits its turn instead of firing off a request that was going to 429 anyway. I'd set the capacity low on purpose, well under the organization's actual limit, because other things share that quota too: your eval runs, a teammate's script, whatever's hitting the same API key.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One honest caveat: this only helps if your pipeline is actually hitting a shared cloud API. If you're running models locally through <a href="https://www.firstevolvenextscale.com/local-llms-ollama-with-web-search/">Ollama</a>, none of this applies until you hit your own GPU's throughput, which is a real ceiling too, just a different one with no 429 to warn you about it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Make Retries Idempotent (Or Your Retry Will Double-Charge Someone)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the thing nobody mentions in the backoff tutorials: retrying a model call is safe. Retrying a <em>tool call the model made</em> often isn't. If an agent calls a "charge the customer" or "send the email" tool, gets a 429 on the response that would have confirmed success, and retries the whole step, you can end up running that tool twice for one logical action.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The fix is a fingerprint, not a retry count. Before a tool with a side effect runs, hash the agent, the tool name, and the arguments, and check whether you've already run that exact call:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import hashlib
+
+_seen_calls: dict[str, object] = {}
+
+def fingerprint(agent_id: str, tool_name: str, args: dict) -> str:
+    payload = f"{agent_id}:{tool_name}:{sorted(args.items())}"
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+def run_tool_once(agent_id: str, tool_name: str, args: dict, fn):
+    key = fingerprint(agent_id, tool_name, args)
+    if key in _seen_calls:
+        return _seen_calls[key]
+    result = fn()
+    _seen_calls[key] = result
+    return result</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I tested this against a fake "charge the card" function that increments a counter: two calls with identical arguments, one actual charge. That's the whole point, a replayed retry returns the cached result instead of running the side effect again. For anything that matters, swap the in-memory dict for a real cache with a TTL. A dict that lives for the length of one process won't save you across a restart.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is also where I'd pull in a person rather than trust the retry logic blindly. For a tool that moves money or sends something irreversible, <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">keeping a human in the loop</a> on the first few runs catches the fingerprint bugs you didn't think to write a test for, before they cost anything real.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons of Letting the SDK Auto-Retry</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Both the Anthropic and OpenAI SDKs retry certain errors for you automatically, with no code on your end. Tempting to just rely on that and skip everything above. I'd only do it for small, low-concurrency scripts.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of SDK auto-retry</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Zero code, zero maintenance for the common case</li>
+<li>Already tuned against the provider's own rate limit behavior</li>
+<li>Honors <code>retry-after</code> correctly out of the box</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of SDK auto-retry</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>No visibility into how many retries happened unless you add logging yourself</li>
+<li>Doesn't know about your tool-call side effects, so it can't help with idempotency</li>
+<li>Doesn't coordinate across workers, so twenty agents can still synchronize a thundering herd even if each one's retries look fine in isolation</li>
+<li>Caps out at a fixed attempt count the SDK chose, not one you tuned for your traffic pattern</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>For anything with more than a handful of concurrent workers, I'd layer the token bucket and fingerprinting on top of the SDK's built-in retry rather than replacing it. Skip rebuilding exponential backoff from scratch; that part the SDK already does fine.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>No stop_after_attempt.</strong> "Retry until it works" on a quota error becomes an infinite loop that never exits.</li>
+<li><strong>Retrying a spend-cap or quota error at all.</strong> Check <code>error_code</code>/<code>code</code> first; some 429s have no fix but waiting for next month.</li>
+<li><strong>Flat sleep durations with no jitter.</strong> Every failed worker wakes up at the same instant and re-triggers the exact storm you were recovering from.</li>
+<li><strong>Treating a 503 overload the same as a 429 rate limit.</strong> Both deserve a retry, but overload is a capacity problem on their side and tolerates a longer, lazier backoff.</li>
+<li><strong>Retrying side-effecting tool calls without a fingerprint.</strong> Fine for a read-only search tool. At scale, with a payment or email tool, that's how a $1 charge becomes $2.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you only do one thing from this post, make it the error-code check before the retry decision. It's a five-line change and it's the difference between a pipeline that recovers gracefully and one that burns its whole attempt budget on an error that was never going away. After that, add the token bucket; it's less code than the backoff logic and it prevents more errors than the backoff ever recovers from. Idempotency can wait until you actually have a tool with a side effect worth protecting, but don't wait until after the double-charge to write it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the difference between a rate limit 429 and a quota or spend-cap 429?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Both return the same HTTP status and often the same error type, but a rate limit is temporary and includes a <code>retry-after</code> header telling you when it clears. A spend-cap or quota error has no such header, because nothing you do will fix it before the billing period resets. Check the error code, not just the status.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Should I add jitter if I only run one agent at a time?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Less urgent, but still worth it. Jitter mostly protects you from synchronizing with other workers, including other processes on your own machine or a teammate's script hitting the same API key. A single lonely agent gains less from it, though exponential backoff alone is still better than a flat sleep.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How many retries should stop_after_attempt allow?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>I use 5 as a default and haven't needed more in practice. If you're hitting the cap at 5 attempts regularly, the real fix is the token bucket from earlier, not a higher retry count. A higher number just delays the failure instead of preventing it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does prompt caching actually help with rate limits, or just cost?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Both, on Anthropic's API specifically: cached input tokens don't count toward your input-tokens-per-minute limit on most models, so a high cache hit rate raises your effective throughput, not just your bill. It won't touch your requests-per-minute limit, though, so it's a partial fix at best for an agent pipeline making many small calls.</p><!-- /wp:paragraph -->

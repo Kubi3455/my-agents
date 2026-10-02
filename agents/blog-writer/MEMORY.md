@@ -24,6 +24,8 @@
 - 2026-09-28: gpt-image-2 (1536x1024, medium) prompt'taki "no text, no letters, no numbers" ile temiz çıktı verdi; 3/3 ilk denemede kabul.
 - 2026-09-28: optimize_image.py ile PNG 1.5–1.7 MB → WebP 16–27 KB, gözle kayıp yok.
 
+- 2026-10-02: İki panelli "karşılaştırma" sahnelerinde (ör. A vs B) model bazen sahte/bozuk kod panelleri ekliyor ("COITH JITTER)" gibi anlamsız başlıklar). Prompt'a "no embedded code panels" eklemek ve sahneyi ikona/metrik kartlarına yönlendirmek temiz sonuç verdi (1 yeniden üretimde düzeldi).
+
 ## Denenecek (Hipotezler)
 - FAQ bölümü olan yazılar daha fazla gösterim alıyor mu? (Search Console verisi gelince test et)
 - Başlıkta yıl ("2026") CTR'yi artırıyor mu?

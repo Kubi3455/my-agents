@@ -1,0 +1,62 @@
+{
+  "title": "AI Agent Rate Limits: A Practical Retry Strategy for 429 Errors",
+  "slug": "ai-agent-rate-limits",
+  "excerpt": "Forty parallel agents, one shared quota, and a six-hour wall of HTTP 429s taught me the difference between a rate limit you retry and a spend cap you don't.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "AI Agent Rate Limits",
+    "429 Errors",
+    "Exponential Backoff",
+    "Token Bucket Rate Limiting",
+    "Idempotent Retries",
+    "Tenacity",
+    "Anthropic API",
+    "OpenAI API",
+    "AI Agent Debugging",
+    "Multi-Agent Systems"
+  ],
+  "focus_keyword": "AI agent rate limits",
+  "seo_title": "AI Agent Rate Limits: A Practical Retry Strategy",
+  "meta_description": "Learn how to fix AI agent rate limit errors with exponential backoff, token-bucket concurrency limits, and tested idempotent retry code in Python.",
+  "social_message": "My overnight AI agent run hit six straight hours of HTTP 429s.\n\nForty agents fanning out meant 20+ model calls each, way past the rate limit before a single retry even fired. Here's the exponential backoff, token-bucket concurrency cap, and idempotent retry pattern that fixed it, tested in Python.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/ai-agent-rate-limits/\n📌 On Instagram? Link in bio.\n\n#AIAgentRateLimits #429Errors #ExponentialBackoff #Python #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "ai-agent-rate-limits-featured.jpg",
+      "title": "AI Agent Rate Limit Errors and Retry Strategy",
+      "alt": "AI agent requests hitting a 429 rate limit wall, then succeeding through exponential backoff and a retry gate.",
+      "caption": "",
+      "description": "Featured image for the AI agent rate limits guide, showing a 429 rate limit wall and the backoff-and-retry path that gets past it."
+    },
+    {
+      "key": "inline-1",
+      "file": "ai-agent-rate-limits-fanout.webp",
+      "title": "AI Agent Fan-Out Hitting a Rate Limit",
+      "alt": "One AI agent task fanning out into many parallel API calls that overflow a rate limit gauge labeled 429.",
+      "caption": "One task fanning out into dozens of parallel calls is enough to blow through a shared rate limit.",
+      "description": "Illustrates why agent fan-out multiplies API calls fast enough to trigger AI agent rate limits."
+    },
+    {
+      "key": "inline-2",
+      "file": "ai-agent-rate-limits-jitter.webp",
+      "title": "Same-Time Retries vs Jittered Backoff",
+      "alt": "Comparing AI agents retrying at the same time versus with jitter to avoid a rate limit thundering herd.",
+      "caption": "Jitter staggers retries so agents don't all slam the API at the same instant.",
+      "description": "Shows why exponential backoff needs jitter to avoid a synchronized retry storm against a rate-limited API."
+    },
+    {
+      "key": "inline-3",
+      "file": "ai-agent-rate-limits-tokenbucket.webp",
+      "title": "Token Bucket Rate Limiter for AI Agents",
+      "alt": "A token bucket rate limiter controlling request flow to worker nodes, with duplicate request detection.",
+      "caption": "A token bucket caps concurrent calls before the provider ever returns a 429.",
+      "description": "Shows a token bucket limiter pairing with idempotent retries to prevent duplicate side-effecting tool calls."
+    }
+  ]
+}

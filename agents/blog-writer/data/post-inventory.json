@@ -2,6 +2,75 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1619,
+      "date": "2026-10-01",
+      "title": "MCP Context Bloat: How to Reclaim Your Agent’s Context Window",
+      "slug": "mcp-context-bloat",
+      "link": "https://www.firstevolvenextscale.com/mcp-context-bloat/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Context Window",
+        "AI agent debugging",
+        "AI Agent Tooling",
+        "Claude API",
+        "MCP Context Bloat",
+        "MCP Token Usage",
+        "MCP Tool Overhead",
+        "Model Context Protocol",
+        "Progressive Tool Discovery",
+        "Tool Search Tool"
+      ],
+      "excerpt": "Tool definitions from every connected MCP server can eat a third of your context window before the model reads your request. Here’s how progressive discovery and Anthropic’s native tool search fix it."
+    },
+    {
+      "id": 1613,
+      "date": "2026-09-29",
+      "title": "CrewAI Unified Memory System: What Actually Changed in 2026",
+      "slug": "crewai-unified-memory-system",
+      "link": "https://www.firstevolvenextscale.com/crewai-unified-memory-system/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Memory",
+        "AI Agents",
+        "CrewAI",
+        "CrewAI Memory",
+        "CrewAI Unified Memory",
+        "LanceDB",
+        "Local LLM",
+        "Memory Scopes",
+        "Multi-Agent Systems",
+        "Ollama"
+      ],
+      "excerpt": "CrewAI quietly replaced its four memory classes with one unified Memory system built on scopes. Here’s how it actually works, verified against the installed package."
+    },
+    {
+      "id": 1606,
+      "date": "2026-09-27",
+      "title": "LangGraph Checkpointing: How to Resume an AI Agent After a Crash",
+      "slug": "langgraph-checkpointing",
+      "link": "https://www.firstevolvenextscale.com/langgraph-checkpointing/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent State Persistence",
+        "AI agent debugging",
+        "AI Agents",
+        "AI Engineering",
+        "Durable Execution",
+        "LangGraph",
+        "LangGraph Checkpointing",
+        "Resume AI Agent",
+        "SqliteSaver",
+        "Time Travel Debugging"
+      ],
+      "excerpt": "A timeout killed my five-step agent run and took every paid token with it. Here’s how LangGraph checkpointing lets a crashed agent pick up exactly where it stopped, with tested code and the pitfalls that bit me."
+    },
+    {
       "id": 1589,
       "date": "2026-09-15",
       "title": "Structured Outputs in Local LLMs: Using Instructor with Python for JSON Extraction 2026",
@@ -735,19 +804,24 @@
   ],
   "tags": [
     {
+      "id": 82,
+      "count": 10,
+      "name": "AI Agents"
+    },
+    {
       "id": 71,
       "count": 10,
       "name": "Artificial Intelligence"
     },
     {
-      "id": 82,
-      "count": 8,
-      "name": "AI Agents"
-    },
-    {
       "id": 83,
       "count": 6,
       "name": "AI Automation"
+    },
+    {
+      "id": 461,
+      "count": 5,
+      "name": "AI Engineering"
     },
     {
       "id": 76,
@@ -765,14 +839,14 @@
       "name": "Machine Learning"
     },
     {
-      "id": 461,
-      "count": 4,
-      "name": "AI Engineering"
-    },
-    {
       "id": 77,
       "count": 4,
       "name": "AI Tools"
+    },
+    {
+      "id": 443,
+      "count": 4,
+      "name": "Ollama"
     },
     {
       "id": 322,
@@ -783,6 +857,11 @@
       "id": 72,
       "count": 3,
       "name": "AI"
+    },
+    {
+      "id": 525,
+      "count": 3,
+      "name": "AI agent debugging"
     },
     {
       "id": 464,
@@ -815,19 +894,34 @@
       "name": "ChatGPT"
     },
     {
+      "id": 450,
+      "count": 3,
+      "name": "CrewAI"
+    },
+    {
       "id": 78,
       "count": 3,
       "name": "Future of AI"
     },
     {
+      "id": 451,
+      "count": 3,
+      "name": "LangGraph"
+    },
+    {
+      "id": 438,
+      "count": 3,
+      "name": "Local LLM"
+    },
+    {
+      "id": 453,
+      "count": 3,
+      "name": "Multi-Agent Systems"
+    },
+    {
       "id": 86,
       "count": 3,
       "name": "Natural Language Processing"
-    },
-    {
-      "id": 443,
-      "count": 3,
-      "name": "Ollama"
     },
     {
       "id": 489,
@@ -905,11 +999,6 @@
       "name": "Computer Vision"
     },
     {
-      "id": 450,
-      "count": 2,
-      "name": "CrewAI"
-    },
-    {
       "id": 477,
       "count": 2,
       "name": "CrewAI debugging"
@@ -940,11 +1029,6 @@
       "name": "How Artificial Intelligence Works"
     },
     {
-      "id": 451,
-      "count": 2,
-      "name": "LangGraph"
-    },
-    {
       "id": 478,
       "count": 2,
       "name": "LangGraph debugging"
@@ -960,19 +1044,9 @@
       "name": "Local AI"
     },
     {
-      "id": 438,
-      "count": 2,
-      "name": "Local LLM"
-    },
-    {
       "id": 454,
       "count": 2,
       "name": "Multi-Agent AI"
-    },
-    {
-      "id": 453,
-      "count": 2,
-      "name": "Multi-Agent Systems"
     },
     {
       "id": 243,
@@ -1015,6 +1089,11 @@
       "name": "agent failure modes"
     },
     {
+      "id": 533,
+      "count": 1,
+      "name": "Agent State Persistence"
+    },
+    {
       "id": 488,
       "count": 1,
       "name": "agent workflow errors"
@@ -1030,9 +1109,9 @@
       "name": "AI Accelerators"
     },
     {
-      "id": 525,
+      "id": 552,
       "count": 1,
-      "name": "AI agent debugging"
+      "name": "AI Agent Context Window"
     },
     {
       "id": 326,
@@ -1045,9 +1124,19 @@
       "name": "AI Agent Guide"
     },
     {
+      "id": 541,
+      "count": 1,
+      "name": "AI Agent Memory"
+    },
+    {
       "id": 329,
       "count": 1,
       "name": "AI Agent Security"
+    },
+    {
+      "id": 551,
+      "count": 1,
+      "name": "AI Agent Tooling"
     },
     {
       "id": 327,
@@ -1425,6 +1514,11 @@
       "name": "Claude AI"
     },
     {
+      "id": 550,
+      "count": 1,
+      "name": "Claude API"
+    },
+    {
       "id": 421,
       "count": 1,
       "name": "Claude for bloggers"
@@ -1500,6 +1594,16 @@
       "name": "CrewAI max_iter"
     },
     {
+      "id": 538,
+      "count": 1,
+      "name": "CrewAI Memory"
+    },
+    {
+      "id": 537,
+      "count": 1,
+      "name": "CrewAI Unified Memory"
+    },
+    {
       "id": 409,
       "count": 1,
       "name": "Cursor AI"
@@ -1543,6 +1647,11 @@
       "id": 165,
       "count": 1,
       "name": "Digital Workspace"
+    },
+    {
+      "id": 535,
+      "count": 1,
+      "name": "Durable Execution"
     },
     {
       "id": 390,
@@ -1815,6 +1924,11 @@
       "name": "Keyword Research"
     },
     {
+      "id": 540,
+      "count": 1,
+      "name": "LanceDB"
+    },
+    {
       "id": 460,
       "count": 1,
       "name": "LangChain"
@@ -1823,6 +1937,11 @@
       "id": 491,
       "count": 1,
       "name": "LangGraph agents"
+    },
+    {
+      "id": 531,
+      "count": 1,
+      "name": "LangGraph Checkpointing"
     },
     {
       "id": 484,
@@ -1925,9 +2044,29 @@
       "name": "Machine Learning Hardware"
     },
     {
+      "id": 544,
+      "count": 1,
+      "name": "MCP Context Bloat"
+    },
+    {
+      "id": 547,
+      "count": 1,
+      "name": "MCP Token Usage"
+    },
+    {
+      "id": 545,
+      "count": 1,
+      "name": "MCP Tool Overhead"
+    },
+    {
       "id": 307,
       "count": 1,
       "name": "Mem AI"
+    },
+    {
+      "id": 539,
+      "count": 1,
+      "name": "Memory Scopes"
     },
     {
       "id": 186,
@@ -1963,6 +2102,11 @@
       "id": 184,
       "count": 1,
       "name": "Mobile App Design"
+    },
+    {
+      "id": 549,
+      "count": 1,
+      "name": "Model Context Protocol"
     },
     {
       "id": 481,
@@ -2070,6 +2214,11 @@
       "name": "Progress Detection"
     },
     {
+      "id": 546,
+      "count": 1,
+      "name": "Progressive Tool Discovery"
+    },
+    {
       "id": 163,
       "count": 1,
       "name": "Project Management"
@@ -2113,6 +2262,11 @@
       "id": 189,
       "count": 1,
       "name": "Responsive Design"
+    },
+    {
+      "id": 532,
+      "count": 1,
+      "name": "Resume AI Agent"
     },
     {
       "id": 463,
@@ -2195,6 +2349,11 @@
       "name": "Software Tools"
     },
     {
+      "id": 534,
+      "count": 1,
+      "name": "SqliteSaver"
+    },
+    {
       "id": 474,
       "count": 1,
       "name": "State Management"
@@ -2238,6 +2397,16 @@
       "id": 228,
       "count": 1,
       "name": "Technical SEO"
+    },
+    {
+      "id": 536,
+      "count": 1,
+      "name": "Time Travel Debugging"
+    },
+    {
+      "id": 548,
+      "count": 1,
+      "name": "Tool Search Tool"
     },
     {
       "id": 508,
@@ -2373,6 +2542,11 @@
       "id": 200,
       "count": 0,
       "name": "Accessibility"
+    },
+    {
+      "id": 542,
+      "count": 0,
+      "name": "AI Agent Observability"
     },
     {
       "id": 141,
@@ -2543,6 +2717,11 @@
       "id": 35,
       "count": 0,
       "name": "kelebek"
+    },
+    {
+      "id": 543,
+      "count": 0,
+      "name": "LangSmith Tracing"
     },
     {
       "id": 212,
