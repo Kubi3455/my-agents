@@ -11,6 +11,11 @@ Bugün 06:00 rutinine başlamadan önce envanteri tazeleyince, sitede 2026-09-29
 - Kayıp olan: o iki günün REPORT.md'si, görselleri, sources.md'si, sosyal paylaşım metninin tam kaydı — bunlar WordPress'te (medya kütüphanesi, yayınlanmış içerik) hâlâ duruyor, sadece ajanın kendi repo geçmişinde yok.
 - **Kullanıcıya not:** Adım 5'in başarıyla tamamlandığını doğrulayan bir kontrol yok (ör. push sonrası `git log` ile commit'in gerçekten uzak repoda olduğunu teyit etmek). Önerilen iyileştirme: HEARTBEAT adım 5'e "push sonrası doğrula" adımı eklemek; yine de bu çalıştırmada riski azaltmak dışında bir aksiyon alınmadı, sadece boşluk kayıt altına alındı.
 
+### Kök neden bulundu ve bugün düzeltildi
+Bugünkü commit'i yaparken reponun **detached HEAD** durumunda açıldığı görüldü (`HEAD detached from refs/heads/main`), `main` dalında değil. Bu durumda `git commit` detached HEAD üzerinde yeni bir commit oluşturuyor, `main` dalı ise eski commit'te sabit kalıyor. `git push origin main` komutu, local `main` referansını (hâlâ eski commit) uzak `main`'e gönderiyor — yani "Everything up-to-date" gibi davranıp **hiçbir şey push etmiyor**, hata da vermiyor. Muhtemelen 2026-09-29 ve 2026-10-01 çalıştırmalarında tam olarak bu oldu: yazı yayınlandı, commit detached HEAD'de oluşturuldu, push sessizce no-op geçti, konteyner kapanınca commit kayboldu.
+- **Bugün uygulanan düzeltme:** `git checkout main && git merge --ff-only <detached-commit>` ile commit `main`'e taşındı, `git push -u origin main` ile push edildi, ardından `git fetch` + `git rev-parse HEAD` / `origin/main` karşılaştırmasıyla push'un gerçekten uzak repoya ulaştığı doğrulandı.
+- **Kalıcı öneri:** HEARTBEAT.md adım 5'e, commit öncesi `git symbolic-ref -q HEAD` ile dal üzerinde olunduğunu kontrol eden (detached ise önce `git checkout main` yapan) ve push sonrası `git fetch` ile uzak repoyu doğrulayan bir adım eklenmeli. Bu çalıştırmada sadece bu oturum için manuel düzeltildi; HEARTBEAT.md dosyası henüz güncellenmedi (insan onayı için bırakıldı).
+
 ## Sonraki
 - Kuyrukta 5 konu var (sırada ilk: multi-agent tracing/observability — Langfuse/AgentOps).
 - Haftalık review (Pazartesi) bu boşluk bulgusunu ve taslak/stil düzeltme oranını değerlendirmeli.
