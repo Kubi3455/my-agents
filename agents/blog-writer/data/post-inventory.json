@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1625,
+      "date": "2026-10-02",
+      "title": "AI Agent Rate Limits: A Practical Retry Strategy for 429 Errors",
+      "slug": "ai-agent-rate-limits",
+      "link": "https://www.firstevolvenextscale.com/ai-agent-rate-limits/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "429 Errors",
+        "AI agent debugging",
+        "AI Agent Rate Limits",
+        "Anthropic API",
+        "Exponential Backoff",
+        "Idempotent Retries",
+        "Multi-Agent Systems",
+        "OpenAI API",
+        "Tenacity",
+        "Token Bucket Rate Limiting"
+      ],
+      "excerpt": "Forty parallel agents, one shared quota, and a six-hour wall of HTTP 429s taught me the difference between a rate limit you retry and a spend cap you don’t."
+    },
+    {
       "id": 1619,
       "date": "2026-10-01",
       "title": "MCP Context Bloat: How to Reclaim Your Agent’s Context Window",
@@ -839,9 +862,19 @@
       "name": "Machine Learning"
     },
     {
+      "id": 525,
+      "count": 4,
+      "name": "AI agent debugging"
+    },
+    {
       "id": 77,
       "count": 4,
       "name": "AI Tools"
+    },
+    {
+      "id": 453,
+      "count": 4,
+      "name": "Multi-Agent Systems"
     },
     {
       "id": 443,
@@ -857,11 +890,6 @@
       "id": 72,
       "count": 3,
       "name": "AI"
-    },
-    {
-      "id": 525,
-      "count": 3,
-      "name": "AI agent debugging"
     },
     {
       "id": 464,
@@ -912,11 +940,6 @@
       "id": 438,
       "count": 3,
       "name": "Local LLM"
-    },
-    {
-      "id": 453,
-      "count": 3,
-      "name": "Multi-Agent Systems"
     },
     {
       "id": 86,
@@ -1074,6 +1097,11 @@
       "name": "Workflow Automation"
     },
     {
+      "id": 554,
+      "count": 1,
+      "name": "429 Errors"
+    },
+    {
       "id": 180,
       "count": 1,
       "name": "Accessibility Design"
@@ -1127,6 +1155,11 @@
       "id": 541,
       "count": 1,
       "name": "AI Agent Memory"
+    },
+    {
+      "id": 553,
+      "count": 1,
+      "name": "AI Agent Rate Limits"
     },
     {
       "id": 329,
@@ -1419,6 +1452,11 @@
       "name": "Aider AI"
     },
     {
+      "id": 559,
+      "count": 1,
+      "name": "Anthropic API"
+    },
+    {
       "id": 377,
       "count": 1,
       "name": "Artificial Intelligence Hardware"
@@ -1674,6 +1712,11 @@
       "name": "Exit Strategies"
     },
     {
+      "id": 555,
+      "count": 1,
+      "name": "Exponential Backoff"
+    },
+    {
       "id": 467,
       "count": 1,
       "name": "Fault Tolerance"
@@ -1857,6 +1900,11 @@
       "id": 259,
       "count": 1,
       "name": "IBM AI Engineering"
+    },
+    {
+      "id": 557,
+      "count": 1,
+      "name": "Idempotent Retries"
     },
     {
       "id": 526,
@@ -2179,6 +2227,11 @@
       "name": "Open Source AI"
     },
     {
+      "id": 560,
+      "count": 1,
+      "name": "OpenAI API"
+    },
+    {
       "id": 222,
       "count": 1,
       "name": "Organic Traffic"
@@ -2399,9 +2452,19 @@
       "name": "Technical SEO"
     },
     {
+      "id": 558,
+      "count": 1,
+      "name": "Tenacity"
+    },
+    {
       "id": 536,
       "count": 1,
       "name": "Time Travel Debugging"
+    },
+    {
+      "id": 556,
+      "count": 1,
+      "name": "Token Bucket Rate Limiting"
     },
     {
       "id": 548,

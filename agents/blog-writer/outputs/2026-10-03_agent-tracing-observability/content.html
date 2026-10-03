@@ -1,0 +1,180 @@
+<!-- wp:paragraph --><p>Last week I lost about three hours to a CrewAI crew that looked like it was hanging. It wasn't. One agent was calling a tool, getting a slow response, then quietly retrying it four times before moving on, and from the outside the whole thing just looked frozen. I only found that out by sprinkling print statements through someone else's code and re-running the crew nine separate times.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've shipped more than one multi-agent system, you already know this feeling, and it's exactly the gap <strong>agent tracing observability</strong> is supposed to close. The logs tell you an agent "finished," but not which tool calls it made, how long each one took, or why it decided to loop. You end up debugging by vibes: add a print, rerun, squint, repeat.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what actually fixes it: real tracing. Not logging, tracing: a tool that records every LLM call, tool call, and state transition as a timestamped tree you can click through after the fact. This post walks through the three tools I'd actually reach for to add it to a CrewAI or LangGraph system (Langfuse, AgentOps, and LangSmith), what each one costs you in setup time, and where each one falls apart.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why "just add logging" doesn't work for agents</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A normal web app has one request, one response, one stack trace if it breaks. An agent loop has none of that structure. One user message can fan out into five LLM calls, three tool invocations, and two sub-agent handoffs, and any one of those can be the thing that actually went wrong. <code>print()</code> statements don't survive a restart, they don't show you timing, and they definitely don't show you what the previous run looked like when you're trying to compare "worked" against "didn't."</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That's exactly the problem I ran into when debugging <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">infinite loops in CrewAI and LangGraph</a> a few weeks back. A trace would have told me "this tool call returned at 14:02:11, the next one started at 14:02:11.3, and that's the loop" in about ten seconds. Instead I was reading raw stdout like tea leaves.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Tracing fixes this by capturing a tree, not a stream. Every LLM call, tool call, and handoff becomes a span with a start time, an end time, inputs, outputs, and a parent. You get a session replay, basically, and you can filter it by agent, by tool, or by "show me every trace that took longer than 10 seconds."</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Langfuse + CrewAI: the OpenTelemetry route</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><a href="https://langfuse.com/integrations/frameworks/crewai">Langfuse</a> is an open-source LLM engineering platform, and it hooks into CrewAI through OpenTelemetry rather than a CrewAI-specific SDK. That matters more than it sounds like it should: it means the same traces also pick up AutoGen, Semantic Kernel, Pydantic AI, and smolagents if your stack ever grows past one framework.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The setup is three environment variables and two lines of Python:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import os
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-..."
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-..."
+os.environ["LANGFUSE_BASE_URL"] = "https://cloud.langfuse.com"  # EU region
+
+from langfuse import get_client
+from openinference.instrumentation.crewai import CrewAIInstrumentor
+
+langfuse = get_client()
+assert langfuse.auth_check(), "check your Langfuse keys"
+
+CrewAIInstrumentor().instrument(skip_dep_check=True)
+
+from crewai import Agent, Task, Crew
+
+coder = Agent(role="Software developer", goal="Write clean code on demand",
+              backstory="A pragmatic engineer who hates over-engineering.")
+task = Task(description="Write a Python function that validates an email address.",
+            expected_output="A tested Python function.", agent=coder)
+crew = Crew(agents=[coder], tasks=[task])
+
+with langfuse.start_as_current_observation(as_type="span", name="crewai-trace"):
+    result = crew.kickoff()
+
+langfuse.flush()  # don't skip this — unflushed spans just vanish on exit
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That <code>langfuse.flush()</code> call at the end isn't decoration. Langfuse batches spans and ships them asynchronously, and if your script exits before the batch flushes, you get a trace dashboard with a suspicious gap where your crew's actual work should be. I burned twenty minutes on that exact thing the first time I wired this up, assuming the instrumentor was broken when it was just my own script exiting too fast.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>You'll also see <a href="https://docs.crewai.com/en/observability/langfuse">CrewAI's own docs</a> recommend a slightly different path: <code>pip install langfuse openlit crewai crewai_tools</code> and a single <code>openlit.init()</code> call instead of the explicit instrumentor. It works, and it's genuinely one line shorter. I'd still go with the OpenInference instrumentor above, because it gives you the context manager and the ability to name spans yourself, which matters a lot once you've got more than one crew running and need to tell their traces apart in the dashboard.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-1}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">AgentOps + LangGraph: one init call, auto-everything</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><a href="https://docs.agentops.ai/v2/integrations/langgraph">AgentOps</a> takes a different bet. Instead of wiring OpenTelemetry spans by hand, it treats the whole agent <em>session</em> as the primary unit, not the individual LLM call. In practice that means setup is almost insultingly simple:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from dotenv import load_dotenv
+import agentops
+
+load_dotenv()  # expects AGENTOPS_API_KEY in your .env
+agentops.init()
+
+# everything below this line is now traced automatically
+from langgraph.graph import StateGraph
+# ... build and run your graph as normal
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>One call. No context managers, no manual span names. It picks up graph structure, node executions, every LLM call, tool usage, state changes, and timing, and gives you a session replay you can scrub through like a video. For a LangGraph project that's growing node by node and you just need to <em>see</em> what's happening without instrumenting each node yourself, this is the fastest path to a usable trace I've found.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The catch: that automatic breadth is also where it gets fuzzy. Because AgentOps instruments at the session level, drilling into "why did node 4 take 8 seconds" sometimes takes an extra click or two compared to a tool built around explicit spans. Fine for a 3-node LangGraph app. At 15+ nodes with branching and sub-graphs, I've found myself wishing for Langfuse's named-span control instead.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of AgentOps</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Setup is a single <code>init()</code> call, genuinely the fastest time-to-first-trace of the three</li>
+<li>Session replay makes "what actually happened" visible without reading JSON</li>
+<li>Supports 400+ LLMs and most agent frameworks, so it travels well if you switch stacks</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of AgentOps</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Less granular control over individual span names and boundaries than Langfuse's instrumentor</li>
+<li>No self-hosted option if your data residency requirements rule out a third-party SaaS dashboard</li>
+<li>Session-first design means node-level debugging on large graphs takes a few more clicks</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">LangSmith + LangGraph: the zero-code-change option (with an asterisk)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If your LangGraph nodes only ever call LangChain components, <a href="https://docs.langchain.com/langsmith/trace-with-langgraph">LangSmith</a> is the laziest setup of the three. You set two environment variables and you're done:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>export LANGSMITH_TRACING=true
+export LANGSMITH_API_KEY=lsv2_...
+# optional, only if you're outside the US:
+# export LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>No decorator, no instrumentor import, nothing in your Python file changes. Every runnable, chain, and graph node LangChain touches gets traced automatically. Here's the confusing part: the moment one of your nodes drops down to a raw OpenAI SDK call, or calls some other API directly instead of going through a LangChain wrapper, that call goes dark. LangSmith won't see it unless you wrap it with <code>@traceable</code> or <code>wrap_openai()</code> yourself.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I've seen teams assume "zero code changes" means "every call in my app is traced," ship it, and then spend an afternoon confused about a gap in the trace where a custom retrieval function lived. It wasn't a LangChain object, so LangSmith never saw it run. The fix is one decorator, but you have to know to look for it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-2}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Picking one: a comparison table</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Tool</th><th>Setup effort</th><th>Best fit</th><th>Self-hosted?</th><th>Weak spot</th></tr></thead>
+<tbody>
+<tr><td>Langfuse</td><td>Env vars + instrumentor (~5 min)</td><td>Mixed frameworks, named spans, teams that want OTel standard</td><td>Yes</td><td>One more import than AgentOps for the same CrewAI setup</td></tr>
+<tr><td>AgentOps</td><td>One <code>init()</code> call (~1 min)</td><td>Fast LangGraph/CrewAI prototyping, session replay</td><td>No</td><td>Less span-level control on large graphs</td></tr>
+<tr><td>LangSmith</td><td>Env vars only, for LangChain-native code (~2 min)</td><td>Pure LangChain/LangGraph stacks</td><td>No (self-hosted on Enterprise plan)</td><td>Silently misses non-LangChain calls</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>Honestly, if you're already deep into LangGraph and every node is a LangChain runnable, start with LangSmith. You'll have a trace in under five minutes. If your crew spans CrewAI, some raw API calls, and maybe a local model, I'd reach for Langfuse; the OpenTelemetry foundation means it won't leave half your stack untraced. AgentOps is the one I pull out when I just want to <em>see</em> a new multi-agent prototype work, fast, before I've decided how serious the project is.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What a real trace actually catches</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Once tracing is wired in, the payoff shows up fast. A few things I've caught this way that print statements never would have:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>A tool call that succeeded but took 9 seconds because of an unbounded retry inside a third-party SDK, not my code</li>
+<li>Two agents calling the exact same tool with the exact same arguments two steps apart, a sign the planner wasn't tracking what had already been done</li>
+<li>A sub-agent whose output got silently truncated before the parent agent read it, because the parent's context window was already near its limit (the same class of problem I wrote up in <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">reclaiming an agent's context window</a>)</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>None of those show up in a log line that just says "task completed." They show up in a span tree where you can see exactly which call took how long and what it returned.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Forgetting to flush before the process exits</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Covered above for Langfuse, but it applies more broadly: any SDK that batches spans asynchronously can lose the tail end of a short script. If your traces look truncated, check for a flush/shutdown call before you assume the instrumentation is broken.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Tracing in production without sampling</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Fine for ten requests a day. At 10,000, you're suddenly paying to store and ship a full trace tree for every single call, and most observability platforms bill on trace volume. Set a sampling rate once you're past the prototyping stage. Tracing every single call in dev, then dialing it down to 10-20% in production, is a reasonable default for most of these tools.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Treating traces as a replacement for retry logic</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A trace shows you that a call got rate-limited and retried five times. It doesn't fix that for you. If 429s are a recurring theme in your traces, that's a sign to go build an actual backoff strategy, which I walked through separately in <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">a practical retry strategy for 429 errors</a>, not a reason to just add more tracing.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Mixing up "state" with "trace"</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A trace tells you what happened during one run. It's not a substitute for durable state. If you need to resume a crashed agent from where it left off rather than just understand why it crashed, that's a different problem, and I covered the checkpointing side of it in <a href="https://www.firstevolvenextscale.com/langgraph-checkpointing/">how to resume a LangGraph agent after a crash</a>.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-3}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">When agent tracing observability alone isn't enough</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Tracing tells you what happened. It won't tell you why your crew's memory kept returning stale results, or why two agents disagreed about shared state. Those are architecture problems, not visibility problems. I ran into exactly that distinction while digging into <a href="https://www.firstevolvenextscale.com/crewai-unified-memory-system/">what changed in CrewAI's unified memory system</a>: the traces showed me the memory lookup was fast and returning data, which just moved the question to "why is this data wrong," a question tracing can point at but not answer on its own.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>So don't stop at "add Langfuse" and call observability solved. Tracing is the flashlight. You still have to walk into the room and look.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I use Langfuse and LangSmith at the same time?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Technically yes, since both work through environment variables and separate SDK calls, but I wouldn't. You'll pay for two platforms to store the same data and spend time reconciling two dashboards that disagree slightly on timing. Pick one per project.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does tracing slow down my agent?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A little, but it's usually in the single-digit milliseconds per span for network-bound agent calls, which are already dominated by LLM latency measured in seconds. The bigger cost is the billing one: trace volume at scale, not latency.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need agent tracing observability for a side project?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Probably not from day one. For a single-agent script you're running locally, print statements and a debugger are genuinely fine. The moment you add a second agent, a loop, or a tool call that can fail silently, that's your signal to wire in a real tracer.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Which tool works if I'm not using CrewAI or LangGraph at all?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Langfuse is the safest default, since it's built on OpenTelemetry and already supports AutoGen, Semantic Kernel, Pydantic AI, and smolagents alongside CrewAI. AgentOps' framework list is broader (400+ LLMs, most major agent frameworks), but check their current integration docs for your specific stack before committing.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the real difference between a trace and a log?</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A log is a flat line of text with a timestamp. A trace is a tree: it knows that span B happened inside span A, that span A took 4.2 seconds, and that 3.9 of those seconds were span B waiting on an API. That parent-child relationship is the entire reason tracing catches things logging doesn't.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If I'm starting a new multi-agent project today, I'm adding tracing before I write the second agent, not after the third debugging session makes me regret it. Start with whichever tool matches the one line of effort you're willing to spend right now: LangSmith if you're all-in on LangChain, AgentOps if you want a trace in sixty seconds, Langfuse if you suspect your stack won't stay this simple. You can always switch later; what you can't do is go back and trace the bug that already happened.</p><!-- /wp:paragraph -->

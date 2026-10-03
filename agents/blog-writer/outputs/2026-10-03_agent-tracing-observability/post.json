@@ -1,0 +1,58 @@
+{
+  "title": "Agent Tracing Observability: Langfuse vs AgentOps vs LangSmith",
+  "slug": "agent-tracing-observability",
+  "excerpt": "A practical comparison of Langfuse, AgentOps, and LangSmith for debugging multi-agent systems, with the setup code and trade-offs that actually matter.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Agent Tracing Observability",
+    "Langfuse",
+    "AgentOps",
+    "LangSmith Tracing",
+    "OpenTelemetry",
+    "CrewAI debugging",
+    "LangGraph debugging",
+    "AI Agent Observability",
+    "Multi-Agent AI",
+    "AI agent debugging"
+  ],
+  "focus_keyword": "agent tracing observability",
+  "seo_title": "Agent Tracing Observability for CrewAI & LangGraph",
+  "meta_description": "Learn how to add agent tracing observability to CrewAI and LangGraph using Langfuse, AgentOps, or LangSmith, with real setup code and honest trade-offs.",
+  "social_message": "I lost 3 hours debugging a CrewAI agent that wasn't actually stuck.\n\nTurns out it was silently retrying a slow tool call. Here's how Langfuse, AgentOps, and LangSmith trace that in minutes, with real setup code for CrewAI and LangGraph.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/agent-tracing-observability/\n📌 On Instagram? Link in bio.\n\n#AgentTracingObservability #CrewAIDebugging #LangGraphDebugging #Langfuse #AIAgents #AIEngineering",
+  "quality": {"seo_checklist": 12, "human_voice_test": 8, "images_reviewed": true},
+  "images": [
+    {
+      "key": "featured",
+      "file": "agent-tracing-observability-featured.jpg",
+      "title": "Agent tracing observability: from opaque agent to full trace tree",
+      "alt": "Agent tracing observability shown as an opaque agent unfolding into a branching trace tree and latency dashboard.",
+      "caption": "",
+      "description": "Featured image showing how agent tracing observability turns an opaque, stuck agent into a readable trace tree and dashboard."
+    },
+    {
+      "key": "inline-1",
+      "file": "agent-tracing-observability-langfuse-pipeline.webp",
+      "title": "Langfuse OpenTelemetry pipeline for CrewAI agents",
+      "alt": "Langfuse agent tracing pipeline: CrewAI agents emitting spans into a collector feeding a trace dashboard.",
+      "caption": "Each CrewAI agent emits a span; the collector batches them until a flush call ships the trace.",
+      "description": "Diagram of the Langfuse OpenTelemetry pipeline: CrewAI agents emit spans, a collector batches them, and a flush call ships the completed trace to the dashboard."
+    },
+    {
+      "key": "inline-2",
+      "file": "agent-tracing-observability-session-replay.webp",
+      "title": "AgentOps session replay catching a retry loop",
+      "alt": "Session replay timeline catching a LangGraph node stuck in a four-retry loop via agent tracing observability.",
+      "caption": "A session replay timeline makes a silent four-retry loop visible in seconds.",
+      "description": "Session replay view of a LangGraph workflow where a validate-output node fails and retries four times, exactly the kind of issue agent tracing observability surfaces."
+    },
+    {
+      "key": "inline-3",
+      "file": "agent-tracing-observability-sampling.webp",
+      "title": "Sampling traces in production to control tracing cost",
+      "alt": "Funnel diagram of trace sampling, filtering agent traces down before storage to control observability cost.",
+      "caption": "",
+      "description": "Illustration of trace sampling: most incoming traces are filtered out before storage, which is how teams keep agent tracing observability affordable at scale."
+    }
+  ]
+}
