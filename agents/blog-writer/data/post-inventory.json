@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1631,
+      "date": "2026-10-03",
+      "title": "Agent Tracing Observability: Langfuse vs AgentOps vs LangSmith",
+      "slug": "agent-tracing-observability",
+      "link": "https://www.firstevolvenextscale.com/agent-tracing-observability/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent Tracing Observability",
+        "AgentOps",
+        "AI agent debugging",
+        "AI Agent Observability",
+        "CrewAI debugging",
+        "Langfuse",
+        "LangGraph debugging",
+        "LangSmith Tracing",
+        "Multi-Agent AI",
+        "OpenTelemetry"
+      ],
+      "excerpt": "A practical comparison of Langfuse, AgentOps, and LangSmith for debugging multi-agent systems, with the setup code and trade-offs that actually matter."
+    },
+    {
       "id": 1625,
       "date": "2026-10-02",
       "title": "AI Agent Rate Limits: A Practical Retry Strategy for 429 Errors",
@@ -842,6 +865,11 @@
       "name": "AI Automation"
     },
     {
+      "id": 525,
+      "count": 5,
+      "name": "AI agent debugging"
+    },
+    {
       "id": 461,
       "count": 5,
       "name": "AI Engineering"
@@ -860,11 +888,6 @@
       "id": 74,
       "count": 5,
       "name": "Machine Learning"
-    },
-    {
-      "id": 525,
-      "count": 4,
-      "name": "AI agent debugging"
     },
     {
       "id": 77,
@@ -927,6 +950,11 @@
       "name": "CrewAI"
     },
     {
+      "id": 477,
+      "count": 3,
+      "name": "CrewAI debugging"
+    },
+    {
       "id": 78,
       "count": 3,
       "name": "Future of AI"
@@ -937,9 +965,19 @@
       "name": "LangGraph"
     },
     {
+      "id": 478,
+      "count": 3,
+      "name": "LangGraph debugging"
+    },
+    {
       "id": 438,
       "count": 3,
       "name": "Local LLM"
+    },
+    {
+      "id": 454,
+      "count": 3,
+      "name": "Multi-Agent AI"
     },
     {
       "id": 86,
@@ -1022,11 +1060,6 @@
       "name": "Computer Vision"
     },
     {
-      "id": 477,
-      "count": 2,
-      "name": "CrewAI debugging"
-    },
-    {
       "id": 81,
       "count": 2,
       "name": "Deep Learning"
@@ -1052,11 +1085,6 @@
       "name": "How Artificial Intelligence Works"
     },
     {
-      "id": 478,
-      "count": 2,
-      "name": "LangGraph debugging"
-    },
-    {
       "id": 456,
       "count": 2,
       "name": "LLM Agents"
@@ -1065,11 +1093,6 @@
       "id": 440,
       "count": 2,
       "name": "Local AI"
-    },
-    {
-      "id": 454,
-      "count": 2,
-      "name": "Multi-Agent AI"
     },
     {
       "id": 243,
@@ -1122,9 +1145,19 @@
       "name": "Agent State Persistence"
     },
     {
+      "id": 561,
+      "count": 1,
+      "name": "Agent Tracing Observability"
+    },
+    {
       "id": 488,
       "count": 1,
       "name": "agent workflow errors"
+    },
+    {
+      "id": 563,
+      "count": 1,
+      "name": "AgentOps"
     },
     {
       "id": 73,
@@ -1155,6 +1188,11 @@
       "id": 541,
       "count": 1,
       "name": "AI Agent Memory"
+    },
+    {
+      "id": 542,
+      "count": 1,
+      "name": "AI Agent Observability"
     },
     {
       "id": 553,
@@ -1982,6 +2020,11 @@
       "name": "LangChain"
     },
     {
+      "id": 562,
+      "count": 1,
+      "name": "Langfuse"
+    },
+    {
       "id": 491,
       "count": 1,
       "name": "LangGraph agents"
@@ -2000,6 +2043,11 @@
       "id": 485,
       "count": 1,
       "name": "LangGraph recursion limit"
+    },
+    {
+      "id": 543,
+      "count": 1,
+      "name": "LangSmith Tracing"
     },
     {
       "id": 369,
@@ -2230,6 +2278,11 @@
       "id": 560,
       "count": 1,
       "name": "OpenAI API"
+    },
+    {
+      "id": 564,
+      "count": 1,
+      "name": "OpenTelemetry"
     },
     {
       "id": 222,
@@ -2607,11 +2660,6 @@
       "name": "Accessibility"
     },
     {
-      "id": 542,
-      "count": 0,
-      "name": "AI Agent Observability"
-    },
-    {
       "id": 141,
       "count": 0,
       "name": "AI Productivity Tools"
@@ -2780,11 +2828,6 @@
       "id": 35,
       "count": 0,
       "name": "kelebek"
-    },
-    {
-      "id": 543,
-      "count": 0,
-      "name": "LangSmith Tracing"
     },
     {
       "id": 212,

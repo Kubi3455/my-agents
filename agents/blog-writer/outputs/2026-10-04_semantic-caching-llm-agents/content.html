@@ -1,0 +1,136 @@
+<!-- wp:paragraph --><p>Last week I decided to bolt semantic caching for LLM agents onto a pipeline that was asking a model the same handful of questions a few hundred times a day, and the caching library ate more of my afternoon than the agent itself ever had. <code>pip install gptcache</code> finishes in four seconds and gives you almost nothing: no embedding model, no vector store, no ONNX runtime. The first time you call <code>cache.init()</code>, it tries to quietly pip-install the rest for you, mid-script, and if that silent install fails or lands in the wrong environment, you get a stack trace three layers deep in someone else's lazy-import code. Not fun at 4pm on a Friday.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've ever added a caching layer to an agent and watched it do nothing, or worse, hand back a confidently wrong answer to a question that only sounded like one you'd cached, you already know why semantic caching is more interesting than it looks on a slide. Exact-match caching barely helps agents, because agents rarely ask the exact same thing twice. They ask "what's the refund policy" and then, three tool calls later, "can I get money back on this," and a dumb cache sees two different strings. It's the same kind of blind spot I ran into while <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging infinite loops in CrewAI and LangGraph</a>: the symptom looks new, but the root cause is just agents repeating themselves.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what I'll actually walk through: how semantic caching tells those two questions apart from a genuinely different one, the GPTCache setup that works once you know which three packages it forgot to mention, where Redis's managed LangCache fits if you don't want to run that infrastructure yourself, and the one tuning knob that decides whether your cache saves money or quietly lies to users.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why agents keep paying for the same question twice</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A chatbot gets one phrasing of a question from one user. An agent pipeline multiplies that problem in two directions at once. First, you've usually got more than one user asking variations of the same thing &#8212; "how do I reset my password" and "I'm locked out, help" are the same support ticket wearing different words. Second, agents ask <em>themselves</em> near-duplicate questions across a run: a planner re-checking "what tools are available" after every step, a retriever re-summarizing the same document chunk for three different sub-tasks. Same repetitive pattern, just expensive instead of broken.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>None of that shows up as a single expensive call you can profile and fix. It shows up as a thousand small, slightly-different calls, each one too cheap to notice until the bill arrives. The <a href="https://arxiv.org/abs/2411.05276">GPT Semantic Cache paper</a> measured this directly against a production-style workload and found cache hit rates of 61.6&#8211;68.8% once a semantic layer was in front of the model, meaning roughly two-thirds of the calls were paying for an answer the system already had. That's real money.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>It compounds with problems I've written about before, too. If you're fanning out agent calls fast enough to hit <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">provider rate limits</a>, a chunk of that volume is often the same question asked five different ways by five different workers. And if your tool definitions are already <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">eating a third of your context window</a> before the real request even starts, every one of those redundant calls is paying that tax again on top of the API cost. Semantic caching doesn't fix either of those problems directly, but it quietly shrinks how often you hit them, because a cache hit never reaches the rate limiter at all.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">How semantic caching for LLM agents decides "close enough"</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A regular cache is a dictionary: same key in, same value out, nothing in between. Semantic caching replaces the key with a vector. The incoming prompt gets converted to an embedding, that embedding gets compared against every embedding already in the cache using cosine similarity, and if the closest match clears a threshold, you get the stored answer back instead of a model call. Miss, and the real call goes out. Then both the question and the answer get stored for next time.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The threshold is the whole game. Redis, whose LangCache product exists specifically to run this step for you, documents a default similarity threshold of <code>0.85</code> with a recommended starting range of <code>0.8&#8211;0.9</code>, and is upfront about the tradeoff: tighter means fewer wrong answers and more real LLM calls, looser means a higher hit rate and more risk of returning the answer to a different question that merely sounds similar. There's no universally correct number. A support FAQ bot can run loose. A bot answering account-specific billing questions can't.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the confusing part if you're coming from exact-key caching: a "hit" in a semantic cache isn't a correctness guarantee anymore, it's a bet. You're trading some chance of a wrong answer for a lot fewer model calls. That trade is usually worth it. But only if you've set the threshold on purpose, not just kept whatever default your library shipped with.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-1}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Setting up GPTCache (and the three packages it won't tell you about)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><a href="https://github.com/zilliztech/GPTCache">GPTCache</a> is the open-source option if you want this running locally without a managed service. The documented quickstart looks like four lines. In practice, I needed <code>onnxruntime</code>, <code>transformers</code>, <code>sqlalchemy</code>, and <code>faiss-cpu</code> installed up front, because GPTCache's own lazy-install mechanism tried to shell out to pip mid-import and didn't reliably land the packages in my virtualenv. Install them yourself first and the rest goes smoothly:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>pip install gptcache onnxruntime faiss-cpu sqlalchemy
+pip install "transformers==4.36.2" "tokenizers<0.20"</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That second pin matters more than it looks. GPTCache's bundled ONNX embedding wrapper calls a tokenizer method, <code>encode_plus</code>, that current <code>transformers</code> releases have quietly dropped from the fast-tokenizer path. Install whatever's newest and you'll get an <code>AttributeError</code> two layers down in a vendored dependency, nowhere near your own code. I lost a chunk of the afternoon to that one. Pinning an older version fixed it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>With those installed, the actual cache setup is short:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from gptcache import cache
+from gptcache.adapter.api import put, get
+from gptcache.processor.pre import get_prompt
+from gptcache.embedding import Onnx
+from gptcache.manager import CacheBase, VectorBase, get_data_manager
+from gptcache.similarity_evaluation.distance import SearchDistanceEvaluation
+
+onnx = Onnx()
+data_manager = get_data_manager(
+    CacheBase("sqlite"),
+    VectorBase("faiss", dimension=onnx.dimension),
+)
+
+cache.init(
+    embedding_func=onnx.to_embeddings,
+    data_manager=data_manager,
+    similarity_evaluation=SearchDistanceEvaluation(),
+    pre_embedding_func=get_prompt,  # required for plain put()/get() strings
+)
+
+put("How do I reset my password?", "Go to Settings > Security > Reset Password.")
+
+get("How do I change my password?")   # -> the cached answer
+get("What's the weather in Tokyo?")   # -> None, correctly treated as a miss</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran exactly that against both a paraphrased password question and an unrelated one. The paraphrase came back with the cached answer; the weather question came back <code>None</code>, which is the result you want, a clean miss rather than a false match. That <code>pre_embedding_func=get_prompt</code> line isn't optional window dressing either: skip it and <code>put()</code> assumes you're passing OpenAI-style chat messages, not a plain string, and throws a <code>TypeError</code> that has nothing to do with your actual mistake. GPTCache's own adapter wraps <code>openai.ChatCompletion.create</code> directly if you'd rather cache real completions instead of calling <code>put</code>/<code>get</code> by hand, but the manual version above is what I'd reach for first just to prove the similarity matching behaves the way you expect before you wire it into a live pipeline.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">GPTCache vs. a managed option like Redis LangCache</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>GPTCache gets you running for free on a laptop, but you're now the one operating a vector store, an embedding model, and a SQLite file that needs to survive restarts. <a href="https://redis.io/docs/latest/develop/ai/context-engine/langcache/concepts/">Redis LangCache</a> takes the opposite bet: you call a REST API with a <code>cacheId</code>, pick an embedding provider (Redis's own, OpenAI, or your own), and it handles the embedding, storage, and similarity search behind that one endpoint. Redis's own numbers put cost reduction as high as 73&#8211;90% on high-repetition workloads, with roughly a 15x latency improvement on cache hits versus a full model round trip, which lines up with the hit-rate numbers from the GPTCache paper above &#8212; a cache hit is just a vector lookup, and vector lookups are fast.</p><!-- /wp:paragraph -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Approach</th><th>You run</th><th>Setup effort</th><th>Best fit</th></tr></thead>
+<tbody>
+<tr><td>GPTCache</td><td>Embedding model, vector store, cache DB</td><td>Higher (dependency pinning, your own infra)</td><td>Local prototypes, full control over the embedding model, no new vendor</td></tr>
+<tr><td>Redis LangCache</td><td>Nothing; call the API</td><td>Lower (one service, one threshold setting)</td><td>Production traffic where ops time costs more than the managed service</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of GPTCache</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Free, runs entirely on your own infrastructure, nothing leaves your network</li>
+<li>Swappable pieces: SQLite or a real database, FAISS or Milvus, ONNX or OpenAI embeddings</li>
+<li>No per-call pricing on top of what you're already paying the model provider</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of GPTCache</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Dependency pinning is on you, and the project's lazy-install path can't be trusted blindly</li>
+<li>You own uptime, backups, and scaling the vector store as cache size grows</li>
+<li>No managed dashboard for hit rate or threshold tuning; you build that yourself</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-2}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Where a cache hit becomes a wrong answer</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Every semantic cache can return a response to a question that isn't quite the one that was asked, because similarity isn't equivalence. "Can I cancel my subscription" and "can I cancel my order" sit close together in embedding space if your corpus doesn't have much else nearby, and a loose threshold will happily merge them. You'll skip the real model call. You won't skip the embarrassment when a customer gets billing advice for the wrong product.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd treat the threshold as something you tune with real traffic, not something you set once and forget. Start tight, around <code>0.9</code>, log what gets rejected as a near-miss, and loosen gradually while spot-checking the matches that start sneaking through. Start loose instead, and you've already shipped wrong answers before you notice the pattern. By then the damage is done.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Staleness is the other failure mode nobody mentions until it bites them. A cached answer about "current pricing" is correct right up until pricing changes, and a similarity-based cache has no idea that happened. If what you're caching can go stale, pair the similarity threshold with a TTL, or scope entries to an attribute (a product version, a pricing tier) you can invalidate in bulk when the underlying fact changes.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Trusting GPTCache's lazy pip installs.</strong> Pre-install <code>onnxruntime</code>, <code>transformers</code> (pinned), <code>sqlalchemy</code>, and <code>faiss-cpu</code> yourself rather than letting a mid-import <code>subprocess.check_call</code> do it for you.</li>
+<li><strong>Forgetting <code>pre_embedding_func=get_prompt</code>.</strong> Without it, plain-string <code>put()</code>/<code>get()</code> calls assume a chat-message dict and fail with an unrelated <code>TypeError</code>.</li>
+<li><strong>Never tuning the default threshold.</strong> Whatever a library ships as default is a guess about your traffic, not a fact about it.</li>
+<li><strong>Caching answers that go stale.</strong> Add a TTL or attribute-based invalidation for anything tied to a fact that changes (pricing, inventory, policy).</li>
+<li><strong>Measuring only cost, not correctness.</strong> A high hit rate with no spot-checking just means you're confidently wrong more often, faster.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-3}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">When semantic caching alone isn't enough</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Semantic caching cuts repeated questions, not every expensive pattern an agent produces. If your real problem is that <a href="https://www.firstevolvenextscale.com/crewai-unified-memory-system/">agent memory</a> keeps re-fetching context it already has, a cache sitting in front of the model doesn't fix a retrieval design issue upstream of it; it just makes the symptom cheaper. And a cache hit is invisible in a log line the same way everything else about agent behavior is &#8212; if you can't already see <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">which calls your agents are actually making</a>, you won't be able to tell whether your cache is saving money or quietly serving stale answers to real traffic. Wire up tracing first, or at least alongside, so a cache hit rate of 70% means something you can verify instead of a number you're trusting on faith.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If I were adding this to a new agent pipeline today, I'd start with GPTCache locally just to watch the hit rate on real traffic for a week, pre-installing the dependencies above so I wasn't debugging someone else's lazy-import code. Once the threshold was dialed in and the cost savings were real instead of theoretical, that's the point where I'd weigh Redis LangCache against the ops cost of running the vector store myself. Either way, don't skip the step where you actually look at what the cache is matching. Check it by hand. A cache that saves money by being occasionally, invisibly wrong isn't a win. It's a cost you've moved somewhere you can't see it yet.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is semantic caching the same thing as prompt caching?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No, and mixing them up costs you debugging time. Prompt caching (what Anthropic and OpenAI offer natively) reuses the processed tokens of an identical prompt prefix. Semantic caching matches on meaning across different prompts entirely, using embeddings and a similarity threshold, and it's typically a separate layer you add yourself rather than a provider API flag.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What similarity threshold should I start with?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Redis LangCache's documented default is <code>0.85</code>, with a recommended range of <code>0.8&#8211;0.9</code>. I'd start at the tight end of that range, around <code>0.9</code>, and loosen it only after watching what real queries match at that setting.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does semantic caching help with rate limits too?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Indirectly. A cache hit never reaches the model provider at all, so it can't trigger a 429. It won't fix a pipeline that's already fanning out too many concurrent calls for genuinely new questions; that's a separate problem with its own fix. But it does shrink the total volume hitting that limit in the first place.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can a semantic cache return a wrong answer?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes, by design. A similarity match above the threshold isn't a guarantee of an identical question, just a bet that it's close enough. That's the entire tradeoff versus exact-key caching: more hits, at the cost of occasionally merging two questions that only sound alike.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need this for a small side project?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Probably not yet. If your agent makes a few dozen calls a day, the dependency wrangling above costs more time than the caching saves. Once you're seeing the same questions recur across users, or an agent re-asking itself the same thing across steps in a loop, that's the signal it's worth the setup.</p><!-- /wp:paragraph -->

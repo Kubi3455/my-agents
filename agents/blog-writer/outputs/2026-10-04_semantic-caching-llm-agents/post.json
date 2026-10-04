@@ -1,0 +1,58 @@
+{
+  "title": "Semantic Caching for LLM Agents: Cut Redundant API Calls",
+  "slug": "semantic-caching-llm-agents",
+  "excerpt": "A working GPTCache setup, the dependency pitfalls I actually hit, and how Redis LangCache compares, for cutting repeated LLM calls in an agent pipeline.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Semantic Caching LLM Agents",
+    "GPTCache",
+    "Redis LangCache",
+    "Embedding Similarity Search",
+    "LLM Cost Optimization",
+    "Vector Cache",
+    "Reduce API Costs",
+    "LLM Agents",
+    "Multi-Agent AI",
+    "AI Agent Observability"
+  ],
+  "focus_keyword": "semantic caching for llm agents",
+  "seo_title": "Semantic Caching for LLM Agents: Cut API Costs",
+  "meta_description": "Learn how semantic caching for LLM agents cuts redundant API calls, with a working GPTCache setup, real pitfalls, and a Redis LangCache comparison.",
+  "social_message": "I lost an afternoon to a caching library before it saved me a cent.\n\nGPTCache's pip install skips its own dependencies, and a stale pin breaks on current transformers. Here's the working setup, the real errors I hit, and how it stacks up against Redis LangCache for cutting repeated LLM calls.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/semantic-caching-llm-agents/\n📌 On Instagram? Link in bio.\n\n#SemanticCaching #LLMAgents #GPTCache #Python #AIEngineering #MachineLearning",
+  "quality": {"seo_checklist": 12, "human_voice_test": 8, "images_reviewed": true},
+  "images": [
+    {
+      "key": "featured",
+      "file": "semantic-caching-llm-agents-featured.jpg",
+      "title": "Semantic caching for LLM agents: cache hits vs. LLM calls",
+      "alt": "Semantic caching for LLM agents: similar questions return instantly from a cache instead of hitting the LLM.",
+      "caption": "",
+      "description": "Featured image showing how semantic caching for LLM agents intercepts near-duplicate questions at a cache gate, returning most instantly and only forwarding genuinely new questions to the LLM."
+    },
+    {
+      "key": "inline-1",
+      "file": "semantic-caching-llm-agents-similarity-match.webp",
+      "title": "How similarity matching works in a semantic cache",
+      "alt": "Semantic caching similarity match: a question is embedded, searched against stored vectors, and checked against a threshold.",
+      "caption": "A query becomes a vector, gets compared to stored vectors, and the threshold decides hit or miss.",
+      "description": "Step-by-step diagram of how semantic caching for LLM agents converts a question into an embedding, searches vector space for the closest match, and uses a similarity threshold to decide between a cache hit and a miss."
+    },
+    {
+      "key": "inline-2",
+      "file": "semantic-caching-llm-agents-diy-vs-managed.webp",
+      "title": "GPTCache self-hosted vs. Redis LangCache managed",
+      "alt": "Comparison of self-hosted GPTCache infrastructure versus a managed Redis LangCache API call for semantic caching.",
+      "caption": "Self-hosted GPTCache means you run the server, database, and setup; a managed option like Redis LangCache is one API call.",
+      "description": "Side-by-side comparison of running semantic caching for LLM agents yourself with GPTCache versus using a managed service like Redis LangCache."
+    },
+    {
+      "key": "inline-3",
+      "file": "semantic-caching-llm-agents-threshold-tuning.webp",
+      "title": "Tuning the similarity threshold in a question-answer cache",
+      "alt": "Semantic caching threshold tuning: a tight match returns the right cached answer, a loose match risks a wrong one.",
+      "caption": "A tight threshold protects accuracy; a loose one raises coverage and the risk of a wrong match.",
+      "description": "Illustration of threshold tuning for semantic caching: a tight threshold returns a correct match, a loose threshold risks returning the wrong cached answer, and a TTL retires stale answers."
+    }
+  ]
+}

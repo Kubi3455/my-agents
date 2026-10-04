@@ -25,6 +25,7 @@
 - 2026-09-28: optimize_image.py ile PNG 1.5–1.7 MB → WebP 16–27 KB, gözle kayıp yok.
 
 - 2026-10-02: İki panelli "karşılaştırma" sahnelerinde (ör. A vs B) model bazen sahte/bozuk kod panelleri ekliyor ("COITH JITTER)" gibi anlamsız başlıklar). Prompt'a "no embedded code panels" eklemek ve sahneyi ikona/metrik kartlarına yönlendirmek temiz sonuç verdi (1 yeniden üretimde düzeldi).
+- 2026-10-04: "Threshold/risk tuning" gibi soyut kavram sahnelerinde model bazen konuyu tamamen başka bir alana kaydırıyor (ör. "semantic caching" isteği "kullanıcı kimlik/fraud eşleştirme" sahnesine dönüştü: User ID/Email/Device/Location kartları). Metin kendi içinde doğru yazılmış olsa da makalenin konusunu yansıtmıyor. Prompt'a konuyla ilgili somut negatif kısıtlar eklemek ("NOT about X, no user profiles/emails/device fields, only Y") sapmayı 1 denemede düzeltti. Soyut/çok genel sahne tarifleri (sadece "risk tuning", "comparison" gibi) bu sapmaya daha yatkın; sahneyi makalenin asıl nesneleriyle (burada: soru-cevap balonları) açıkça sınırlamak gerekiyor.
 
 ## Denenecek (Hipotezler)
 - FAQ bölümü olan yazılar daha fazla gösterim alıyor mu? (Search Console verisi gelince test et)
