@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1637,
+      "date": "2026-10-04",
+      "title": "Semantic Caching for LLM Agents: Cut Redundant API Calls",
+      "slug": "semantic-caching-llm-agents",
+      "link": "https://www.firstevolvenextscale.com/semantic-caching-llm-agents/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Observability",
+        "Embedding Similarity Search",
+        "GPTCache",
+        "LLM Agents",
+        "LLM Cost Optimization",
+        "Multi-Agent AI",
+        "Redis LangCache",
+        "Reduce API Costs",
+        "Semantic Caching LLM Agents",
+        "Vector Cache"
+      ],
+      "excerpt": "A working GPTCache setup, the dependency pitfalls I actually hit, and how Redis LangCache compares, for cutting repeated LLM calls in an agent pipeline."
+    },
+    {
       "id": 1631,
       "date": "2026-10-03",
       "title": "Agent Tracing Observability: Langfuse vs AgentOps vs LangSmith",
@@ -895,6 +918,11 @@
       "name": "AI Tools"
     },
     {
+      "id": 454,
+      "count": 4,
+      "name": "Multi-Agent AI"
+    },
+    {
       "id": 453,
       "count": 4,
       "name": "Multi-Agent Systems"
@@ -970,14 +998,14 @@
       "name": "LangGraph debugging"
     },
     {
+      "id": 456,
+      "count": 3,
+      "name": "LLM Agents"
+    },
+    {
       "id": 438,
       "count": 3,
       "name": "Local LLM"
-    },
-    {
-      "id": 454,
-      "count": 3,
-      "name": "Multi-Agent AI"
     },
     {
       "id": 86,
@@ -988,6 +1016,11 @@
       "id": 489,
       "count": 2,
       "name": "agent orchestration"
+    },
+    {
+      "id": 542,
+      "count": 2,
+      "name": "AI Agent Observability"
     },
     {
       "id": 431,
@@ -1083,11 +1116,6 @@
       "id": 90,
       "count": 2,
       "name": "How Artificial Intelligence Works"
-    },
-    {
-      "id": 456,
-      "count": 2,
-      "name": "LLM Agents"
     },
     {
       "id": 440,
@@ -1188,11 +1216,6 @@
       "id": 541,
       "count": 1,
       "name": "AI Agent Memory"
-    },
-    {
-      "id": 542,
-      "count": 1,
-      "name": "AI Agent Observability"
     },
     {
       "id": 553,
@@ -1735,6 +1758,11 @@
       "name": "Edge AI"
     },
     {
+      "id": 568,
+      "count": 1,
+      "name": "Embedding Similarity Search"
+    },
+    {
       "id": 473,
       "count": 1,
       "name": "Error Handling"
@@ -1878,6 +1906,11 @@
       "id": 161,
       "count": 1,
       "name": "Google Workspace"
+    },
+    {
+      "id": 566,
+      "count": 1,
+      "name": "GPTCache"
     },
     {
       "id": 380,
@@ -2083,6 +2116,11 @@
       "id": 389,
       "count": 1,
       "name": "Liquid Cooling"
+    },
+    {
+      "id": 569,
+      "count": 1,
+      "name": "LLM Cost Optimization"
     },
     {
       "id": 365,
@@ -2350,6 +2388,16 @@
       "name": "Python AI"
     },
     {
+      "id": 567,
+      "count": 1,
+      "name": "Redis LangCache"
+    },
+    {
+      "id": 571,
+      "count": 1,
+      "name": "Reduce API Costs"
+    },
+    {
       "id": 167,
       "count": 1,
       "name": "Remote Work"
@@ -2408,6 +2456,11 @@
       "id": 444,
       "count": 1,
       "name": "Self Hosted AI"
+    },
+    {
+      "id": 565,
+      "count": 1,
+      "name": "Semantic Caching LLM Agents"
     },
     {
       "id": 392,
@@ -2603,6 +2656,11 @@
       "id": 193,
       "count": 1,
       "name": "UX Trends"
+    },
+    {
+      "id": 570,
+      "count": 1,
+      "name": "Vector Cache"
     },
     {
       "id": 211,
