@@ -1,0 +1,178 @@
+<!-- wp:paragraph --><p>I spent a Saturday convinced my local agent had gotten dumber overnight. It had been calling a search tool fine all week, then it just... stopped. No error, no crash, just a model answering from memory, ignoring the three tools I'd registered.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I checked the model, checked the prompt, checked my sanity.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The actual bug was two layers down: the OpenAI-compatible endpoint had quietly dropped my context-length setting, the tool schemas got shoved out of context before the model saw them, and nothing in the response said so.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Ollama tool calling agents don't need LangChain in the loop. If you've wired <a href="https://www.firstevolvenextscale.com/local-llms-ollama-with-web-search/">Ollama into an agent loop</a>, the native <code>/api/chat</code> endpoint has supported OpenAI-shaped function calling since mid-2024, and as of this week it got meaningfully better. You need about forty lines of Python and a clear idea of where it breaks, not a framework.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's how Ollama tool calling actually works without LangChain in the loop, the exact agent loop I run, the context-window bug that cost me that Saturday, and which models are worth trusting with a tool in the first place.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What Ollama Tool Calling Actually Looks Like on the Wire</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Skip the framework abstraction for a second and look at the raw request. You <code>POST</code> to <code>/api/chat</code> with a <code>tools</code> array, and each tool is the same JSON Schema shape OpenAI popularized: a <code>type: "function"</code>, a <code>name</code>, a <code>description</code>, and a <code>parameters</code> schema.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import requests
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        },
+    }
+]
+
+resp = requests.post(
+    "http://localhost:11434/api/chat",
+    json={
+        "model": "qwen3",
+        "messages": [{"role": "user", "content": "What's the weather in Istanbul?"}],
+        "tools": TOOLS,
+        "stream": False,
+    },
+    timeout=30,
+)
+print(resp.json()["message"])</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>If the model decides to call <code>get_weather</code>, the response's <code>message</code> has a <code>tool_calls</code> array, and each entry looks like <code>{"function": {"name": "get_weather", "arguments": {"city": "Istanbul"}}}</code>. The detail that trips people coming from the raw OpenAI API: <code>arguments</code> is already a parsed dict, not a JSON string. Call <code>json.loads()</code> on it like you're used to and you'll get a <code>TypeError</code> for your trouble. I did exactly that the first time, and the traceback was about as unhelpful as you'd expect for "you tried to parse something that wasn't a string."</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Building Ollama Tool Calling Agents (No LangChain, No AutoGen)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A tool-calling agent is just a loop: ask the model, check if it wants a tool, run the tool, hand the result back, repeat until it answers in plain text. That's the whole pattern LangChain wraps in an abstraction layer. Written out directly, it's not much code:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import requests
+
+def get_weather(city: str) -> str:
+    return f"14°C and cloudy in {city}"  # swap for a real API call
+
+AVAILABLE_FUNCTIONS = {"get_weather": get_weather}
+
+def run_agent(prompt: str, model: str = "qwen3") -> str:
+    messages = [{"role": "user", "content": prompt}]
+
+    resp = requests.post(
+        "http://localhost:11434/api/chat",
+        json={"model": model, "messages": messages, "tools": TOOLS, "stream": False},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    message = resp.json()["message"]
+
+    tool_calls = message.get("tool_calls")
+    if not tool_calls:
+        return message["content"]
+
+    messages.append(message)
+    for call in tool_calls:
+        name = call["function"]["name"]
+        args = call["function"]["arguments"]
+        result = AVAILABLE_FUNCTIONS[name](**args)
+        messages.append({"role": "tool", "tool_name": name, "content": str(result)})
+
+    resp = requests.post(
+        "http://localhost:11434/api/chat",
+        json={"model": model, "messages": messages, "tools": TOOLS, "stream": False},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["message"]["content"]</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this exact loop against a mock server shaped like the real Ollama response before trusting the parsing logic: first call returns a <code>tool_calls</code> entry for <code>get_weather</code>, second call (after the tool result goes back in as a <code>role: "tool"</code> message) returns the final answer in plain content. No surprises, no framework, nothing hidden from you when it breaks.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Multi-step tool use is the same loop, just with the <code>if not tool_calls</code> check as your exit condition instead of a single pass. Guard that loop with a max-iteration count the way you would <a href="https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/">any other agent retry logic</a>, because a model that's confused about whether it already has an answer will happily call the same tool five times in a row.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Gotcha That Cost Me a Saturday: num_ctx and the OpenAI-Compatible Endpoint</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the confusing part. Ollama exposes two ways to talk to it: the native <code>/api/chat</code> endpoint above, and an OpenAI-compatible <code>/v1/chat/completions</code> endpoint for dropping Ollama into tools that already speak the OpenAI SDK. A lot of agent frameworks default to the compatible endpoint because it's the path of least resistance.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The OpenAI-compatible endpoint only maps a fixed allowlist of sampling parameters onto Ollama's internal options. <code>num_ctx</code>, the context window size, isn't on that list.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>No error, no warning.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Set it anywhere in the request, nested under <code>options</code> or at the top level, and it's silently dropped. The server just falls back to its own default context length and keeps going.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Why that bit me specifically: your tool schemas and system prompt sit at the front of the context, ahead of the conversation. When the actual window is smaller than you assumed, the front of the prompt is what gets truncated first. It's the same root problem as <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">tool definitions quietly eating a chunk of your context window</a>, just with a worse symptom here: the tools vanish before the model ever reads them, and from the outside it just looks like a model that forgot it has tools, which is exactly the "got dumber overnight" feeling I opened with.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Three ways to actually fix it: set the <code>OLLAMA_CONTEXT_LENGTH</code> environment variable before starting the server, switch to the native <code>/api/chat</code> endpoint and pass <code>options.num_ctx</code> directly (that one's honored), or bake the window into a Modelfile so it travels with the model. I went with the second option, mostly out of spite.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Streaming + Tools: What v0.40.0 Actually Changed</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>You'll still find tutorials insisting you need <code>stream: false</code> the moment tools enter the picture. That was true. It hasn't been true since mid-2025, when Ollama's streaming tool-calling update shipped, and it got noticeably better again with <a href="https://github.com/ollama/ollama/releases/tag/v0.40.0-rc3">version 0.40.0</a>, which happened to release the day before I'm writing this.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The old streaming approach waited for the full JSON blob of a tool call before trying to parse it, which worked but occasionally emitted the same tool call twice if a chunk arrived at an awkward boundary. 0.40.0 swaps that for an incremental parser that understands each model's own tool-call template as tokens arrive, instead of treating the whole thing as one opaque string to assemble and parse at the end. Fewer duplicate calls, and streaming plus tools is now just... normal, not a special case you work around.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One more thing that release adds: explicit <code>CAPABILITY</code> declarations in Modelfiles, so a model creator can mark exactly what a model supports. Worth knowing if you're routing requests based on capability: Ollama's new "decision models" (exposed under <code>/v1/systemone</code>) report only a <code>decision</code> capability, specifically so clients don't try to hand them tools. If your router logic assumes every chat model can call tools, that assumption breaks the day you add one of these.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Which Models Actually Call Tools Reliably</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Not every model that technically accepts a <code>tools</code> array uses it well. I've burned enough time on this to have opinions, and the pattern has been consistent across everything I've tried.</p><!-- /wp:paragraph -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Model class</th><th>Example</th><th>Tool-calling behavior I've seen</th></tr></thead><tbody><tr><td>Sub-7B</td><td>Llama 3.2 1B/3B, Phi-3 Mini, Gemma 2 2B</td><td>Fine for a single, trivial tool call. Past that, arguments get malformed or the call gets skipped entirely.</td></tr><tr><td>8B-class</td><td>Qwen2.5-coder, Llama 3.1 8B</td><td>Calls the right tool with correct arguments. On longer multi-step chains, starts looping or inventing arguments that weren't in the conversation.</td></tr><tr><td>Mid-to-large, tool-tuned</td><td>Qwen3, Mistral Small 3.5, Llama 3.3</td><td>What I'd actually trust in a multi-step agent loop. Noticeably fewer malformed calls, better at knowing when it's done.</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>The malformed-JSON failure mode isn't hypothetical. There's an open <a href="https://github.com/ollama/ollama/issues/12064">GitHub issue</a> with the exact error <code>error parsing tool call: invalid character ']' after object key:value pair</code>. The model itself emitted broken JSON in its tool-call arguments, and Ollama's parser (reasonably) choked on it. That's not an Ollama bug so much as a reminder that the model is generating that JSON token by token, and smaller or less tool-tuned models drop a bracket under pressure the same way they drop a word in a long sentence. It's the same unreliable-output problem I ran into writing about <a href="https://www.firstevolvenextscale.com/structured-outputs-in-local-llm/">getting validated JSON out of local LLMs with Instructor</a>, just one layer further down, in the tool-call plumbing instead of your own response schema.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd skip anything under 7B for a tool loop with more than one step. It's tempting because it's fast and fits on a laptop GPU with room to spare, but you'll spend more time writing retry-and-repair logic around its malformed calls than you saved by not running a bigger model. Before you commit to a model, <a href="https://ollama.com/search?c=tools">check the live tools-filtered model list</a>; it moves fast enough that anything I write here will be a little stale within a couple of months.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Ollama's Native Tool Calling vs. LangChain</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>I'm not anti-LangChain. I've used it, I've written about <a href="https://www.firstevolvenextscale.com/autogpt-vs-crewai-vs-langgraph/">where it's the right call against CrewAI and AutoGPT-style loops</a>, and it does real work for you once a pipeline gets complex. But "I want my local model to call a Python function" doesn't need a framework, and pretending it does just adds a dependency between you and the actual API response.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of going direct with Ollama's API</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>You see the exact request and response, so a malformed tool call is a JSON blob you can read, not an exception three abstraction layers deep</li>
+<li>No version-pinning two libraries against each other; it's <code>requests</code> and a dict</li>
+<li>Streaming, tool calls, and the native <code>options.num_ctx</code> fix all behave exactly as documented, because nothing is translating them first</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of going direct with Ollama's API</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>You write your own loop, retry logic, and message-history management, every time</li>
+<li>No built-in output parsers, no agent memory abstractions, no ecosystem of pre-built tools to import</li>
+<li>Swapping providers later (say, adding a cloud model as a fallback) means rewriting your request shape instead of swapping a LangChain chat model object</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>My honest take: for a single-agent loop against one local model, skip the framework. You'll understand your own failures faster. The moment you need multiple agents coordinating, long-term memory, or a provider-agnostic abstraction because you're mixing local and cloud models, that's when the LangChain tax starts paying for itself.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Treating <code>arguments</code> as a JSON string.</strong> It's already a parsed dict in Ollama's response. Running <code>json.loads()</code> on it raises a <code>TypeError</code>, not a helpful one.</li>
+<li><strong>Setting <code>num_ctx</code> through the OpenAI-compatible endpoint and assuming it took effect.</strong> It's silently dropped. Use the native endpoint or <code>OLLAMA_CONTEXT_LENGTH</code> if context size actually matters, which for tool calling it always does.</li>
+<li><strong>No cap on the tool-calling loop.</strong> A confused model will call the same tool repeatedly instead of answering, the same failure mode I've chased down while <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging infinite loops in CrewAI and LangGraph</a>. Put a hard iteration limit on it from day one.</li>
+<li><strong>Assuming every chat-capable model calls tools well.</strong> Sub-7B models accept the <code>tools</code> field without complaint and still produce malformed calls past the first trivial one.</li>
+<li><strong>Routing a decision model into your agent loop.</strong> Ollama's newer decision models report only a <code>decision</code> capability on purpose: they're not meant to receive tool definitions at all.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you're building a single local agent against Ollama, start with the raw <code>/api/chat</code> loop above before you reach for a framework. Pin the context length explicitly through the native endpoint, cap your loop iterations, and pick at least an 8B-class model if your tool chain runs more than one step. That's most of what I wish someone had told me before the Saturday I lost to a silently truncated context window. Bring in LangChain later, deliberately, when you actually need the coordination it gives you — not because tool calling on its own seemed like it needed one.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does Ollama support tool calling without LangChain?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes. Ollama's native <code>/api/chat</code> endpoint has supported OpenAI-shaped function calling since mid-2024. You send a <code>tools</code> array and read <code>message.tool_calls</code> back, with no framework required. It's a plain HTTP request.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Why are my tool-call arguments not valid JSON when I try to parse them?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Because they're not a string to begin with. Ollama returns <code>arguments</code> as an already-parsed dict, unlike the raw OpenAI API. Skip the <code>json.loads()</code> call entirely and use the dict directly.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Which Ollama models are best for tool calling?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Anything under 7B parameters is unreliable past a single trivial tool call. Mid-to-large tool-tuned models like Qwen3, Llama 3.3, and Mistral Small 3.5 call tools correctly and know when to stop. See <a href="https://docs.ollama.com/capabilities/tool-calling">Ollama's tool-calling reference</a> for the full request and response shape, and check the live model list before committing, since new models ship constantly.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Why did my agent stop using its tools with no error?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Most likely a context-window problem. If you're calling Ollama through its OpenAI-compatible endpoint, <code>num_ctx</code> isn't on the mapped parameter list and gets silently dropped, which means your tool schemas can get truncated out of the context before the model reads them. Switch to the native <code>/api/chat</code> endpoint and pass <code>options.num_ctx</code> directly, or set <code>OLLAMA_CONTEXT_LENGTH</code> on the server.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need streaming disabled to use tool calling with Ollama?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No, not anymore. That was a real limitation before mid-2025. Ollama's streaming tool-calling update fixed it, and version 0.40.0 improved it further with an incremental parser that reduces duplicate tool calls during streaming.</p><!-- /wp:paragraph -->

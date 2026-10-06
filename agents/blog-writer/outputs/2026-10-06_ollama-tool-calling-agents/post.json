@@ -1,0 +1,62 @@
+{
+  "title": "Ollama Tool Calling Agents: No LangChain Required",
+  "slug": "ollama-tool-calling-agents",
+  "excerpt": "A silently truncated context window turned off my agent's tools with zero errors. Here's the native Ollama API shape, the agent loop, and the fix, no LangChain required.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Ollama Tool Calling Agents",
+    "Function Calling",
+    "Local LLM",
+    "AI Agent Loops",
+    "AI Agent Tooling",
+    "Ollama",
+    "LangChain",
+    "Python",
+    "AI Agent Debugging",
+    "Local AI"
+  ],
+  "focus_keyword": "ollama tool calling agents",
+  "seo_title": "Ollama Tool Calling Agents: No LangChain Required",
+  "meta_description": "Learn how Ollama tool calling agents work without LangChain: the native API shape, a minimal loop, and the bug that silently breaks tool calls.",
+  "social_message": "My local agent went quiet on me. No errors, no crash, just a model that forgot it had tools.\n\nTurns out Ollama tool calling agents don't need LangChain, just /api/chat and about 40 lines of Python. The real trap: the OpenAI-compatible endpoint silently drops num_ctx, so your tool schemas get truncated out of context before the model ever reads them.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/ollama-tool-calling-agents/\n📌 On Instagram? Link in bio.\n\n#OllamaToolCalling #AIAgentTooling #AIAgentLoops #Ollama #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "ollama-tool-calling-agents-featured.jpg",
+      "title": "Ollama Tool Calling Agent Flow and Context Truncation",
+      "alt": "Diagram of an Ollama tool calling agent flow with a context window truncation warning cutting off tool schemas.",
+      "caption": "",
+      "description": "Featured image for the Ollama tool calling agents guide, showing the agent-to-tool request flow alongside the context-window truncation bug that silently drops tool schemas."
+    },
+    {
+      "key": "inline-1",
+      "file": "ollama-tool-calling-agents-pipeline.webp",
+      "title": "Ollama Tool Calling Request Pipeline",
+      "alt": "Request pipeline for an Ollama tool calling agent: question, agent node, tool_calls, get_weather function, response.",
+      "caption": "A tool-calling agent is just a request/response loop: ask, call the tool, hand the result back.",
+      "description": "Illustrates the full /api/chat request/response pipeline for a single Ollama tool call, from user question to tool_calls to the final answer."
+    },
+    {
+      "key": "inline-2",
+      "file": "ollama-tool-calling-agents-context-window.webp",
+      "title": "Native API vs OpenAI-Compatible Context Truncation",
+      "alt": "Ollama's native API versus the OpenAI-compatible endpoint, showing tool schemas truncated from the context window.",
+      "caption": "The OpenAI-compatible endpoint drops num_ctx silently, truncating tool schemas before the model ever sees them.",
+      "description": "Compares Ollama's native /api/chat endpoint, which honors options.num_ctx, against the OpenAI-compatible endpoint, which silently truncates tool schemas out of the context window."
+    },
+    {
+      "key": "inline-3",
+      "file": "ollama-tool-calling-agents-model-reliability.webp",
+      "title": "Model Size vs Tool-Calling Reliability",
+      "alt": "Sub-7B, 8B, and tuned Ollama models calling tools, comparing failed, looping, and successful tool-call outcomes.",
+      "caption": "Sub-7B models fail calls, 8B-class models loop on long chains, tuned mid-to-large models call cleanly.",
+      "description": "Shows how tool-calling reliability scales with model size and tuning, from malformed sub-7B calls to clean, successful calls from tool-tuned mid-to-large models."
+    }
+  ]
+}

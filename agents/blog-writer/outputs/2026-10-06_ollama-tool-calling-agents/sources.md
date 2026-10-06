@@ -1,0 +1,12 @@
+# Sources — Ollama Tool Calling Agents (No LangChain)
+
+- Ollama tool-calling capability reference (`/api/chat` request/response shape, `tools` array, `message.tool_calls`, `arguments` returned as a parsed object not a string, streaming + tools support): https://docs.ollama.com/capabilities/tool-calling — verified 2026-10-06
+- Ollama original tool-support announcement (initial model list: Llama 3.1, Mistral Nemo, Firefunction v2, Command-R+; OpenAI-compatible JSON Schema tool format): https://ollama.com/blog/tool-support — verified 2026-10-06
+- Ollama streaming + tool-calling update (removed the old `stream:false` requirement, mid-2025): https://ollama.com/blog/streaming-tool — verified 2026-10-06
+- Ollama v0.40.0-rc3 release notes (incremental per-template tool-call parser, Modelfile `CAPABILITY` declarations, `/v1/systemone` decision models reporting only a `decision` capability, released 2026-10-05): https://github.com/ollama/ollama/releases/tag/v0.40.0-rc3 — verified 2026-10-06
+- Live tools-filtered model list, used for "check before you build" guidance and the model-size table context: https://ollama.com/search?c=tools — verified 2026-10-06
+- Real malformed tool-call JSON error (`error parsing tool call: invalid character ']' after object key:value pair`), open issue against gpt-oss:120b: https://github.com/ollama/ollama/issues/12064 — verified 2026-10-06, quoted verbatim, not invented
+
+## Code verified to run (not just plausible)
+- `agent_loop.py`: minimal no-framework tool-calling loop (`get_weather` tool, `requests.post` to `/api/chat`, dispatch on `message.tool_calls`, second round-trip with a `role: "tool"` message) — run end to end against `mock_ollama_server.py`, a local HTTP server that returns responses shaped exactly like the documented Ollama `/api/chat` tool-calling response (first turn: `tool_calls` entry for `get_weather`; second turn, after a `role: "tool"` message is appended: plain-text answer). Output: `It's 14°C and cloudy in Istanbul.` — PASSED. Confirms the `arguments` dict is consumed directly (no `json.loads()`) and the two-request loop shape is correct.
+- Both files ran in `/tmp/claude-0/.../scratchpad/ollama_test/` under Python 3.13 with `requests` installed; not committed to the repo (scratch files). No live Ollama install or model download was available in this environment, so the actual model's tool-selection behavior (vs. the client-side request/parse/dispatch logic) is sourced from the docs and the GitHub issue above, not independently re-run against a live model.
