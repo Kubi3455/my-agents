@@ -17,6 +17,7 @@
 - 2026-09-28: Rank Math tag arşivlerini `noindex, follow` yapıyor; sitemap_index.xml Rank Math'ten geliyor.
 - 2026-09-27: Rank Math meta alanları varsayılan olarak REST'te yazılamaz; `data/imports/HOW_TO_SETUP.md` snippet'i şart.
 - 2026-09-27: API'ye her zaman `www.` ile istek at; www'suz adres 301 yönlendiriyor ve POST'ta Authorization düşüyor.
+- 2026-10-07: `wp_client.py`'nin `quality_gate`'i odak kelime/başlık eşleşmesini literal substring ile kontrol ediyor (tire/boşluk normalize etmiyor). Odak kelimeyi kuyruğa boşluklu değil, başlıkta kullanılacak gerçek yazımla (örn. "long-term memory" tireli) kaydetmek veya yazarken başlığın tam yazımına göre revize etmek gerekiyor; aksi halde `--live` kapıdan "focus keyword missing from title" ile döner ve bir taslak post + kullanılmayan etiket yaratıp bırakır (script var olan taslağı güncelleyen bir komut sunmuyor, bkz. 2026-10-07 REPORT.md/journal — insan onayı bekleyen script iyileştirme önerisi).
 
 ## Görsel
 - 2026-09-28: Detaylı prompt + featured `high` ile v2 kapak: numaralı adım başlıkları, lejant kutusu, tüm yazılar doğru. Hedef standart bu seviye (kullanıcı yayınladı = onaylandı). PNG 1.9 MB → JPEG 127 KB.

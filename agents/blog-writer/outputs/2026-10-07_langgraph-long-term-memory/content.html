@@ -1,0 +1,182 @@
+<!-- wp:paragraph --><p>A couple of weeks ago I wired up LangGraph long-term memory for a support agent that was supposed to remember a user's preferences across sessions. It worked fine in testing with OpenAI's text-embedding-3-small model, 1536 dimensions, no complaints. Then I swapped in a smaller local model for a cost-conscious client, 384 dimensions, same code, same database. Every write started throwing a <code>psycopg.errors.DataException</code> with a message that read like a passive-aggressive note from the database: expected 1536 dimensions, not 384.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've built anything with LangGraph's checkpointer and assumed it also handles "remembering things across conversations," you've already hit the wall this post is about. Checkpointing saves the state of a single thread so an agent can resume where it left off. It does not, on its own, let an agent recall that a user prefers dark mode three weeks and forty conversations later. That's a different problem, with a different tool.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what I'll actually walk through: the Store abstraction LangGraph uses for cross-thread memory, how to get semantic search working with real embeddings, why PostgresStore needs an extension most tutorials don't mention, and the dimension lock-in trap that bit me above, reproduced end to end so you don't have to find out at 2 a.m.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Short-Term Memory Was Never the Problem</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>LangGraph gives you two separate memory systems, and conflating them is the single most common confusion I see in agent-memory questions online. Short-term memory is the checkpointer: it snapshots a thread's state so you can pause, crash, and resume. I covered <a href="https://www.firstevolvenextscale.com/langgraph-checkpointing/">resuming an AI agent after a crash with LangGraph checkpointing</a> in an earlier post, and that mechanism is solid. But a checkpoint is scoped to one thread. Start a new conversation with the same user tomorrow, and the checkpointer has nothing to say about what happened yesterday.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Long-term memory is the other half: data that outlives a single thread and gets attached to something more durable, usually a user ID. LangGraph models this as a <strong>store</strong>: a namespaced key-value surface the agent (or you) writes to deliberately, not a side effect of running the graph. Deliberately is the operative word. Nothing goes into long-term memory automatically. You decide what's worth keeping.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What LangGraph Actually Means by "Long-Term Memory"</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Per the <a href="https://docs.langchain.com/oss/python/langgraph/stores" rel="noopener" target="_blank">LangGraph Store documentation</a>, the store is built around three ideas: a namespace, a key, and a JSON document. A namespace is a tuple of strings, like <code>("user_123", "memories")</code>, and it behaves like a folder path. Query a prefix like <code>("user_123",)</code> and you also get back anything nested under it. The key is just an identifier within that namespace. The value is whatever dictionary you want to persist.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langgraph.store.memory import InMemoryStore
+
+store = InMemoryStore()
+namespace = ("user_123", "memories")
+
+store.put(namespace, "mem-1", {"memory": "Prefers dark mode in the dashboard"})
+store.put(namespace, "mem-2", {"memory": "Favorite programming language is Python"})
+
+item = store.get(namespace, "mem-2")
+print(item.value)   # {'memory': "Favorite programming language is Python"}
+print(item.key)     # mem-2
+print(item.namespace)  # ('user_123', 'memories')</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That's the whole mental model. No schema migrations, no ORM, just put and get. The part that actually earns the word "memory" instead of "key-value store" is what happens once you give it the ability to search by meaning instead of by exact key.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Start Local: InMemoryStore for Development</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><code>InMemoryStore</code> is the one you reach for first, and it's genuinely fine for prototyping. It lives in a Python dictionary, so it evaporates when your process restarts. Don't use it for anything you'd miss. I'd skip it for anything past a demo, but for wiring up the API and getting the shape right, it's the fastest path.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One thing the docs don't make loud enough: if you run this without NumPy installed, you'll see a warning printed straight to your console the first time you search:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>NumPy not found in the current Python environment. The InMemoryStore
+will use a pure Python implementation for vector operations, which may
+significantly impact performance, especially for large datasets or
+frequent searches. For optimal speed and efficiency, consider installing
+NumPy: pip install numpy</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>It still works without NumPy. It's just slow, and "slow" in a pure-Python cosine similarity loop over a few thousand memories is noticeable. Install NumPy. There's no reason not to.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Making Memory Searchable: Semantic Retrieval with Embeddings</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A plain key-value store can't answer "what does this user like?" You'd need to know the exact key already. The <a href="https://docs.langchain.com/oss/python/langchain/long-term-memory" rel="noopener" target="_blank">official long-term memory guide</a> covers the underlying idea, but the details that actually matter only show up once you run it. Semantic search fixes that by embedding each memory's text into a vector and comparing it against the embedded query. You turn it on by passing an <code>index</code> config to the store constructor: an <code>embed</code> function, the vector <code>dims</code>, and which <code>fields</code> of your stored dict should actually get embedded.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langchain.embeddings import init_embeddings
+from langgraph.store.memory import InMemoryStore
+
+embed = init_embeddings("openai:text-embedding-3-small")
+store = InMemoryStore(index={"embed": embed, "dims": 1536, "fields": ["memory"]})
+
+namespace = ("user_123", "memories")
+store.put(namespace, "mem-1", {"memory": "Prefers dark mode in the dashboard UI"})
+store.put(namespace, "mem-2", {"memory": "Favorite programming language is Python"})
+store.put(namespace, "mem-3", {"memory": "Asked to always get a casual tone"})
+
+results = store.search(namespace, query="what language does this user code in", limit=2)
+for r in results:
+    print(r.key, round(r.score, 4))
+# mem-2 0.6522
+# mem-1 0.309</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran that exact snippet against the real OpenAI embeddings API rather than trusting the docs on faith, and it ranked the Python preference correctly for a query that never used the word "Python." That's the same vector-similarity math behind <a href="https://www.firstevolvenextscale.com/semantic-caching-llm-agents/">semantic caching for LLM agents</a>, just pointed at memories instead of cached responses. If you've already got an embedding pipeline from a caching layer, you can reuse it here.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The <code>fields</code> list matters more than it looks. It tells the store which keys inside your document get embedded, so you can store metadata like timestamps or source conversation IDs without polluting the vector with noise. Use <code>["$"]</code> to embed the whole document if you're not sure yet.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Moving to Production: PostgresStore and pgvector</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><code>InMemoryStore</code> won't survive a deploy. For anything real, LangGraph ships <code>PostgresStore</code>, backed by Postgres with the <a href="https://github.com/pgvector/pgvector" rel="noopener" target="_blank">pgvector</a> extension doing the actual similarity search. Installing the Python side is one line, per the <a href="https://pypi.org/project/langgraph-checkpoint-postgres/" rel="noopener" target="_blank">package's own install instructions</a>:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>pip install langgraph-checkpoint-postgres "psycopg[binary]"</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Here's the confusing part: that pip install does not install pgvector. pgvector is a Postgres server extension, not a Python package, and <code>store.setup()</code> assumes it's already available on the server. The first time I ran this against a plain Postgres 16 instance with nothing extra installed, I got this:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>psycopg.errors.FeatureNotSupported: extension "vector" is not available
+DETAIL: Could not open extension control file
+"/usr/share/postgresql/16/extension/vector.control": No such file or directory.
+HINT: The extension must first be installed on the system where
+PostgreSQL is running.</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>On Ubuntu/Debian that's <code>apt-get install postgresql-16-pgvector</code> (match the version number to your server) or the equivalent package for whatever's hosting Postgres. Managed services like Amazon RDS and Supabase have it preinstalled and just need <code>CREATE EXTENSION vector</code> run once, which <code>setup()</code> does for you after the extension itself exists.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>With that in place, the code barely changes from the in-memory version:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langchain.embeddings import init_embeddings
+from langgraph.store.postgres import PostgresStore
+
+DB_URI = "postgresql://user:password@localhost:5432/mydb?sslmode=disable"
+embed = init_embeddings("openai:text-embedding-3-small")
+
+with PostgresStore.from_conn_string(
+    DB_URI, index={"embed": embed, "dims": 1536, "fields": ["memory"]}
+) as store:
+    store.setup()  # run once; creates tables + the vector extension
+    namespace = ("user_456", "memories")
+    store.put(namespace, "mem-1", {"memory": "Prefers dark mode in the dashboard UI"})
+
+    results = store.search(namespace, query="what language does this user code in", limit=2)
+    for r in results:
+        print(r.key, r.value, round(r.score, 4))</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this against a real local Postgres 16 with pgvector installed and the same OpenAI embedding model as before. It returned the correct ranking, same as the in-memory version. If you're opening connections manually instead of using <code>from_conn_string</code>, remember two details that aren't optional: <code>autocommit=True</code> (without it, <code>setup()</code> can't persist table creation) and <code>row_factory=dict_row</code> from <code>psycopg.rows</code>, since PostgresStore reads rows by column name, not position.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">InMemoryStore vs. PostgresStore</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Store</th><th>Durability</th><th>Setup</th><th>Good for</th></tr></thead><tbody><tr><td>InMemoryStore</td><td>None — wiped on process restart</td><td>Zero. Just instantiate it</td><td>Local dev, unit tests, quick demos</td></tr><tr><td>PostgresStore</td><td>Durable, survives restarts and deploys</td><td>pgvector extension + one <code>setup()</code> call</td><td>Anything running past a demo</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>There's no in-between option in the box. Redis and MongoDB backends exist as separate packages if Postgres isn't your stack, but the API surface (namespaces, put, get, search) stays identical across all of them. Learn the InMemoryStore interface and you've learned PostgresStore's too. If you're coming from CrewAI, this is a deliberately lower-level design than <a href="https://www.firstevolvenextscale.com/crewai-unified-memory-system/">CrewAI's unified memory system</a>, which bundles extraction and retrieval behind one config flag. LangGraph gives you more control and less automatic behavior; which one you want depends on whether you trust the framework's defaults or your own extraction logic more.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Dimension Lock-In Trap</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>This is the one that opened this post, and I reproduced it on purpose so I wasn't just repeating a forum post. After running the Postgres example above successfully with a 1536-dimension OpenAI model, I pointed a second store instance at the <strong>same database</strong> with a fake local embedding function returning 384-dimensional vectors (the real dimension of a lot of small sentence-transformer models, for what it's worth):</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>def fake_384_embed(texts):
+    return [[0.01] * 384 for _ in texts]
+
+with PostgresStore.from_conn_string(
+    DB_URI, index={"embed": fake_384_embed, "dims": 384, "fields": ["memory"]}
+) as store:
+    store.setup()
+    store.put(("user_456", "memories"), "mem-3", {"memory": "This will fail"})</code></pre><!-- /wp:code -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>psycopg.errors.DataException: expected 1536 dimensions, not 384</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The vector column's dimension gets locked in by whatever embedding model wrote to that database first, and it's a database-level constraint, not something scoped to your store instance or namespace. Swap embedding providers, change model versions, go from a 1536-dim model to a 384-dim one to cut cost, and every write fails with that exact error until you migrate.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>There's no built-in migration path for changing dimensions on an existing table. In practice that means picking an embedding model and dimension count before you have real production data, or budgeting time to re-embed everything in a new table if you don't. I'd rather over-provision dimensions slightly up front than find this out with a user-facing outage.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">What Actually Belongs in Long-Term Memory</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's where I see teams overcorrect. Once an agent has a durable store, it's tempting to dump every message into it "just in case." Don't. That's how you end up rebuilding the exact <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">context window bloat</a> problem long-term memory was supposed to solve, except now it's in a database instead of a prompt, and twice as hard to clean up.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>A good memory is a fact, a preference, or a decision, something you'd actually want recalled months later. "User prefers metric units." "User's team uses GitLab, not GitHub." Not "user said hello at 3:42 PM." The extraction step (deciding what's worth saving) is on you; LangGraph's store doesn't do it for you, and that's by design. It's a storage primitive, not a summarization pipeline.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>You'll see people recommend storing the entire conversation transcript "for context." It works, until your namespace has thousands of entries and semantic search starts surfacing noise alongside the two memories that actually matter. Curate on the way in. It's cheaper than curating on the way out.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons of LangGraph's Store Abstraction</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of the Store Abstraction</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list"><li>Same API across InMemoryStore, PostgresStore, and other backends: swapping dev for production is a connection string, not a rewrite</li><li>Semantic search is a config dict, not a separate vector database to stand up and keep in sync</li><li>Namespace prefix matching gives you per-user or per-org isolation for free</li><li>Plays directly into LangGraph's <code>create_agent</code> and tool runtime, so an agent can read and write memory mid-conversation</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons and Limits</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list"><li>No automatic fact extraction, deduplication, or contradiction handling: you write that logic yourself</li><li>Dimension is locked in at the database level with no built-in migration if you change embedding models</li><li>InMemoryStore's pure-Python fallback without NumPy gets slow fast; easy to miss in a quiet log line</li><li>pgvector is an extra server-side dependency most Postgres hosting checklists don't mention until it breaks</li></ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Most of these came up while <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging multi-agent workflows</a> that shared a single memory store across agents without thinking through isolation first.</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list"><li><strong>Forgetting pgvector on a fresh server.</strong> <code>store.setup()</code> will fail with <code>FeatureNotSupported</code> if the extension isn't installed at the OS/package level first</li><li><strong>Manual psycopg connections without <code>row_factory=dict_row</code>.</strong> You'll get a cryptic "tuple indices must be integers or slices, not str" instead of a clear error</li><li><strong>Treating the store as a message log.</strong> It'll work, right up until search results are mostly noise</li><li><strong>Assuming checkpointing covers this.</strong> It doesn't. Checkpointing and the store solve different problems, and conflating them is what sent me down this whole rabbit hole in the first place</li></ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you're prototyping, start with InMemoryStore and don't overthink it. The moment you need memory to survive a restart, move to PostgresStore, but install pgvector on the server before you write a single line of store code, and pick your embedding model's dimension count like you mean it. Changing your mind later costs a migration, not a config edit. And resist the urge to store everything just because you finally can. A handful of well-chosen facts will outperform a dumped transcript every time.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does LangGraph's checkpointer already give me long-term memory?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. The checkpointer persists a single thread's state so you can resume after a crash or pause. It's scoped to that thread and doesn't carry over to a new conversation. Long-term memory needs the separate Store API, usually keyed by user ID instead of thread ID.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I use PostgresStore without pgvector if I don't need semantic search?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>You can skip the <code>index</code> config entirely and use the store purely as a key-value document store, no embedding function and no pgvector requirement. You lose <code>search()</code> by meaning and fall back to exact namespace/key lookups and metadata filters.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What happens if I need to change my embedding model later?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>If the new model has a different dimension count, every write will fail with a <code>DataException</code> until you address it. There's no built-in migration; the practical fix is re-embedding your existing memories into a new table with the new dimension and cutting over.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is InMemoryStore safe to use in production for a low-traffic app?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Only if losing all memory on every restart and deploy is acceptable, which it almost never is. Even a low-traffic app usually restarts more often than you'd expect. Use PostgresStore (or another durable backend) for anything a real user depends on.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does the store work the same way with Redis or MongoDB backends?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>The namespace/key/value API and the <code>index</code> config for semantic search are consistent across backends. What changes is the setup step and the infrastructure you're responsible for running, not the code you write against the store.</p><!-- /wp:paragraph -->

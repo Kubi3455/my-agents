@@ -1,0 +1,62 @@
+{
+  "title": "LangGraph Long-Term Memory: A Practical Vector Store Setup",
+  "slug": "langgraph-long-term-memory",
+  "excerpt": "A hands-on walkthrough of LangGraph's long-term memory Store API: InMemoryStore for dev, PostgresStore with pgvector for production, and the dimension lock-in error that will eventually bite you.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "LangGraph Long-Term Memory",
+    "LangGraph",
+    "AI Agent Memory",
+    "LangGraph agents",
+    "PostgresStore",
+    "pgvector",
+    "Vector Store Setup",
+    "Semantic Search",
+    "Python",
+    "Memory Scopes"
+  ],
+  "focus_keyword": "langgraph long-term memory",
+  "seo_title": "LangGraph Long-Term Memory: A Practical Vector Store Setup",
+  "meta_description": "Learn how to properly set up LangGraph long-term memory: InMemoryStore for local dev, PostgresStore with pgvector for real production workloads.",
+  "social_message": "My agent forgot everything between sessions. Then giving it memory broke in a brand-new way.\n\nLangGraph's Store API gives agents real cross-session memory, but swap embedding models later and PostgresStore throws 'expected 1536 dimensions, not 384' on every write. Here's InMemoryStore vs PostgresStore with pgvector, tested end to end against a real Postgres database.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/langgraph-long-term-memory/\n📌 On Instagram? Link in bio.\n\n#LangGraphLongTermMemory #AIAgentMemory #VectorStoreSetup #Python #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "langgraph-long-term-memory-featured.jpg",
+      "title": "LangGraph Long-Term Memory Architecture",
+      "alt": "LangGraph long-term memory: a faded short-lived session feeding a persistent vector Store a new session recalls from.",
+      "caption": "",
+      "description": "An agent's session memory fading while a persistent vector Store keeps the same facts available to the next session, the core idea behind LangGraph long-term memory."
+    },
+    {
+      "key": "inline-1",
+      "file": "langgraph-long-term-memory-namespace-key.webp",
+      "title": "LangGraph Store Namespace and Key Structure",
+      "alt": "LangGraph Store namespace and key structure holding a JSON memory document for long-term memory.",
+      "caption": "A namespace, a key, and a JSON document: the three building blocks of every LangGraph Store entry.",
+      "description": "Diagram of how LangGraph's Store organizes long-term memory into namespaces, keys, and JSON documents."
+    },
+    {
+      "key": "inline-2",
+      "file": "langgraph-long-term-memory-semantic-search.webp",
+      "title": "Semantic Search Over LangGraph Memories",
+      "alt": "Semantic search over LangGraph long-term memory: a query vector matched to the closest stored memories by score.",
+      "caption": "A search query matched against stored memories by vector similarity, not exact keys.",
+      "description": "Illustration of semantic search in LangGraph's Store, where a query vector is ranked against stored memory vectors by similarity score."
+    },
+    {
+      "key": "inline-3",
+      "file": "langgraph-long-term-memory-dimension-mismatch.webp",
+      "title": "PostgresStore Dimension Mismatch Error",
+      "alt": "LangGraph PostgresStore dimension mismatch: a 1536-dim write succeeding against pgvector, a 384-dim write failing.",
+      "caption": "Change embedding models without migrating, and PostgresStore rejects the write with a dimension mismatch error.",
+      "description": "Comparison showing a 1536-dimension embedding write succeeding against a PostgresStore table while a 384-dimension write on the same table fails with a DataException."
+    }
+  ]
+}

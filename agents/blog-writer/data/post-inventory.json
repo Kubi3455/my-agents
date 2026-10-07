@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1644,
+      "date": "2026-10-06",
+      "title": "Ollama Tool Calling Agents: No LangChain Required",
+      "slug": "ollama-tool-calling-agents",
+      "link": "https://www.firstevolvenextscale.com/ollama-tool-calling-agents/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI agent debugging",
+        "AI Agent Loops",
+        "AI Agent Tooling",
+        "function calling",
+        "LangChain",
+        "Local AI",
+        "Local LLM",
+        "Ollama",
+        "Ollama Tool Calling Agents",
+        "Python"
+      ],
+      "excerpt": "A silently truncated context window turned off my agent’s tools with zero errors. Here’s the native Ollama API shape, the agent loop, and the fix, no LangChain required."
+    },
+    {
       "id": 1637,
       "date": "2026-10-04",
       "title": "Semantic Caching for LLM Agents: Cut Redundant API Calls",
@@ -883,14 +906,14 @@
       "name": "Artificial Intelligence"
     },
     {
+      "id": 525,
+      "count": 6,
+      "name": "AI agent debugging"
+    },
+    {
       "id": 83,
       "count": 6,
       "name": "AI Automation"
-    },
-    {
-      "id": 525,
-      "count": 5,
-      "name": "AI agent debugging"
     },
     {
       "id": 461,
@@ -913,9 +936,24 @@
       "name": "Machine Learning"
     },
     {
+      "id": 443,
+      "count": 5,
+      "name": "Ollama"
+    },
+    {
+      "id": 464,
+      "count": 4,
+      "name": "AI Agent Loops"
+    },
+    {
       "id": 77,
       "count": 4,
       "name": "AI Tools"
+    },
+    {
+      "id": 438,
+      "count": 4,
+      "name": "Local LLM"
     },
     {
       "id": 454,
@@ -928,11 +966,6 @@
       "name": "Multi-Agent Systems"
     },
     {
-      "id": 443,
-      "count": 4,
-      "name": "Ollama"
-    },
-    {
       "id": 322,
       "count": 3,
       "name": "Agentic AI"
@@ -941,11 +974,6 @@
       "id": 72,
       "count": 3,
       "name": "AI"
-    },
-    {
-      "id": 464,
-      "count": 3,
-      "name": "AI Agent Loops"
     },
     {
       "id": 253,
@@ -1003,9 +1031,9 @@
       "name": "LLM Agents"
     },
     {
-      "id": 438,
+      "id": 440,
       "count": 3,
-      "name": "Local LLM"
+      "name": "Local AI"
     },
     {
       "id": 86,
@@ -1021,6 +1049,11 @@
       "id": 542,
       "count": 2,
       "name": "AI Agent Observability"
+    },
+    {
+      "id": 551,
+      "count": 2,
+      "name": "AI Agent Tooling"
     },
     {
       "id": 431,
@@ -1108,6 +1141,11 @@
       "name": "Emerging Technologies"
     },
     {
+      "id": 509,
+      "count": 2,
+      "name": "function calling"
+    },
+    {
       "id": 93,
       "count": 2,
       "name": "Gemini AI"
@@ -1118,14 +1156,19 @@
       "name": "How Artificial Intelligence Works"
     },
     {
-      "id": 440,
+      "id": 460,
       "count": 2,
-      "name": "Local AI"
+      "name": "LangChain"
     },
     {
       "id": 243,
       "count": 2,
       "name": "Prompt Engineering"
+    },
+    {
+      "id": 112,
+      "count": 2,
+      "name": "Python"
     },
     {
       "id": 373,
@@ -1226,11 +1269,6 @@
       "id": 329,
       "count": 1,
       "name": "AI Agent Security"
-    },
-    {
-      "id": 551,
-      "count": 1,
-      "name": "AI Agent Tooling"
     },
     {
       "id": 327,
@@ -1838,11 +1876,6 @@
       "name": "freeCodeCamp"
     },
     {
-      "id": 509,
-      "count": 1,
-      "name": "function calling"
-    },
-    {
       "id": 394,
       "count": 1,
       "name": "Future of AI Hardware"
@@ -2046,11 +2079,6 @@
       "id": 540,
       "count": 1,
       "name": "LanceDB"
-    },
-    {
-      "id": 460,
-      "count": 1,
-      "name": "LangChain"
     },
     {
       "id": 562,
@@ -2298,6 +2326,11 @@
       "name": "Ollama Python"
     },
     {
+      "id": 572,
+      "count": 1,
+      "name": "Ollama Tool Calling Agents"
+    },
+    {
       "id": 225,
       "count": 1,
       "name": "On-Page SEO"
@@ -2376,11 +2409,6 @@
       "id": 505,
       "count": 1,
       "name": "Pydantic validation"
-    },
-    {
-      "id": 112,
-      "count": 1,
-      "name": "Python"
     },
     {
       "id": 499,
