@@ -1,0 +1,173 @@
+<!-- wp:paragraph --><p>A few weeks ago I rebuilt the same agent three times. Not because the prompt was bad, but because I kept picking the wrong one of the two basic agent control flow patterns. Version one was a ReAct loop: reason, call a tool, look at the result, decide the next move. Great for poking around an API I didn't know well. Miserable for a six-step report pipeline where every step was already known in advance. The model kept "helpfully" re-deciding things that didn't need deciding, burning tool calls and occasionally wandering off into a step nobody asked for.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've ever watched an agent reason its way into a pointless tool call on step four of something you could've written as a checklist, you know the itch. You start suspecting the framework is broken. It isn't. You handed a reactive loop a job that wanted a plan.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>There are really only two shapes an agent's decision-making can take: decide one step at a time, or decide the whole route up front. Here's how each one actually behaves in agent control flow patterns, where LangChain quietly swapped the default implementation out from under anyone following an old tutorial, and how to stop either pattern from running away on you in production.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What Agent Control Flow Patterns Actually Mean</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Strip away the framework names and an agent's control flow boils down to one question: who decides what happens next, and when do they decide it?</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Graph frameworks like LangGraph aren't a third pattern sitting next to these two. I've written before about <a href="https://www.firstevolvenextscale.com/autogpt-vs-crewai-vs-langgraph/">where LangGraph sits next to CrewAI and AutoGPT-style loops</a>, and the short version is that the framework you pick matters less than the control flow you build with it. LangGraph is just the plumbing: nodes, edges, and conditional edges you wire up to build whichever decision pattern your task actually needs.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>A ReAct agent decides after every observation, picking the next action one step at a time with no commitment beyond the current move. A plan-and-execute agent decides once, up front, laying out the whole route before anything runs. You can build a bad version of either pattern in LangGraph just as easily as a good one.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">ReAct: Reason, Act, Observe, Repeat</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>ReAct is the loop most people picture when they hear "AI agent." The model reasons about what it needs, calls a tool, reads the result, and reasons again, repeating until it has enough to answer in plain text instead of another tool call. No fixed script. Whatever the last observation was drives the next decision.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the part that'll bite you if you learned this from an older tutorial: <code>create_react_agent</code>, the function most ReAct walkthroughs still tell you to import from <code>langgraph.prebuilt</code>, is <a href="https://reference.langchain.com/python/langgraph.prebuilt/prebuilt/chat_agent_executor/create_react_agent">deprecated</a>. LangChain's own reference now says it plainly: the function is deprecated in favor of <a href="https://reference.langchain.com/python/langchain/agents/factory/create_agent"><code>create_agent</code></a> from the <code>langchain</code> package, which does the same job with a proper middleware system attached. The old function still runs, for now, but every new example you write should import the new one.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langchain.agents import create_agent
+
+def search_docs(query: str) -> str:
+    # swap for a real retrieval call
+    return f"Top result for '{query}': use the Store API for cross-session memory."
+
+agent = create_agent(
+    model="anthropic:claude-sonnet-4-5",
+    tools=[search_docs],
+    system_prompt="You are a technical research assistant. Use tools when you need facts.",
+)
+
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "How do LangGraph agents keep memory across sessions?"}]
+})
+print(result["messages"][-1].content)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Run that and the loop is invisible from the outside: one call in, one answer out. Underneath, <code>create_agent</code> compiles a graph that calls the model, runs whatever tools it asked for, and calls the model again until it stops asking. Same ReAct behavior as before. Different import. And the part the deprecation notice buries is a real middleware system instead of a handful of constructor kwargs bolted onto the old function.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Plan-and-Execute: Decide the Whole Route, Then Run</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Plan-and-execute splits the job in two. A planner looks at the task once and produces an ordered list of steps. An executor then works through that list. The executor doesn't need to re-reason the whole task at every step. It just needs to run step three, correctly, and hand the result along.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>When you want to build this by hand in LangGraph instead of reaching for a wrapper, the piece that actually does the work is the <a href="https://docs.langchain.com/oss/python/langgraph/use-graph-api"><code>Send</code> API</a>. It lets a conditional edge fan out to several copies of a node at once, each with its own slice of state, which is exactly what "run every plan step" needs:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langgraph.types import Send
+
+def fan_out_to_steps(state: PlanState):
+    # one Send per step in the plan, each running "execute_step" in parallel
+    return [Send("execute_step", {"step": step}) for step in state["plan"]]
+
+builder.add_conditional_edges("make_plan", fan_out_to_steps, ["execute_step"])
+builder.add_edge("execute_step", "collect_results")</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The branch count isn't fixed when you compile the graph. <code>make_plan</code> decides how many steps there are at runtime, and <code>fan_out_to_steps</code> hands each one off as its own parallel run. That's the structural difference from ReAct worth sitting with: in ReAct, the model decides the next node every single time. Here, the model (or a planner you wrote by hand) decides the whole shape once, and the graph just carries it out.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">ReAct vs. Plan-and-Execute at a Glance</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Dimension</th><th>ReAct</th><th>Plan-and-Execute</th></tr></thead><tbody><tr><td>When it decides</td><td>After every observation</td><td>Once, before execution starts</td></tr><tr><td>Best for</td><td>Unfamiliar environments, exploratory tool use</td><td>Known, repeatable multi-step pipelines</td></tr><tr><td>Cost pattern</td><td>One model round-trip per step, no matter how simple</td><td>One planning call, then cheap-or-free execution per step</td></tr><tr><td>Typical failure</td><td>Loops on a step it's already solved</td><td>Plows through a step whose input is now wrong</td></tr><tr><td>Debuggability</td><td>Hard to predict the next node before you run it</td><td>Graph shape is visible before anything executes</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Where Each One Actually Breaks</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>ReAct's weak spot is that it has no holistic view of the task. It's reasoning about the next step, not the whole arc, which means a model that's already technically answered the question will sometimes call the same tool again anyway because nothing in its immediate context told it to stop. I've chased that exact failure mode while <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging infinite loops in CrewAI and LangGraph</a>. It's rarely a bug in the framework. It's a loop with no sense of "I'm done" built into it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Plan-and-execute's weak spot is the mirror image. You commit to a topology before the agent runs, which means you're anticipating control flow that ReAct would've discovered on its own, mid-task. If step three's result quietly invalidates the assumptions behind step five, a naive plan-and-execute graph has no built-in way to notice. It just runs step five with garbage input and hands you a confident, wrong answer. The fix isn't abandoning the pattern. It's adding an explicit edge back to the planner when an executor step reports something unexpected, so the graph can replan instead of plowing forward.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Bounding a ReAct Loop in Production (Before It Bounds You)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>The annoying part about ReAct in production isn't correctness. It's that nothing stops the loop by default. A model that's confused about whether it has an answer will happily call a tool five more times, and your API bill doesn't care that it was confused. You cap this the same way you'd cap <a href="https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/">any other agent retry loop</a>: with an explicit limit, not a hope.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><code>create_agent</code>'s <a href="https://docs.langchain.com/oss/python/langchain/middleware/custom">middleware system</a> gives you hooks at four points in the loop: <code>before_model</code> and <code>after_model</code> run around each model call, <code>wrap_model_call</code> and <code>wrap_tool_call</code> let you intercept the call itself (async versions use an <code>a</code> prefix: <code>abefore_model</code> and so on). A step limit just needs the first two:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from langchain.agents import create_agent
+from langchain.agents.middleware import AgentMiddleware, AgentState, hook_config
+from langchain.messages import AIMessage
+
+class StepLimitState(AgentState):
+    model_call_count: int
+
+class ModelCallLimitMiddleware(AgentMiddleware[StepLimitState]):
+    state_schema = StepLimitState
+
+    def __init__(self, max_model_calls: int = 10):
+        super().__init__()
+        self.max_model_calls = max_model_calls
+
+    @hook_config(can_jump_to=["end"])
+    def before_model(self, state, runtime):
+        if state.get("model_call_count", 0) >= self.max_model_calls:
+            return {"messages": [AIMessage("Step limit reached. Stopping here.")], "jump_to": "end"}
+        return None
+
+    def after_model(self, state, runtime):
+        return {"model_call_count": state.get("model_call_count", 0) + 1}
+
+agent = create_agent(
+    model="anthropic:claude-sonnet-4-5",
+    tools=[search_docs],
+    middleware=[ModelCallLimitMiddleware(max_model_calls=5)],
+)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p><code>before_model</code> checks the count before every call and can jump straight to the end of the graph once the limit's hit. <code>after_model</code> increments it after every call completes. Because every tool round-trip in ReAct goes back through the model, capping model calls caps the number of steps along with it. One counter, and the runaway loop has a ceiling.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The same middleware system is also where you'd wire up <code>interrupt_before</code> or <code>interrupt_after</code> on specific tools if a step needs a human to sign off before it runs, the same idea I covered in more depth in <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">keeping a human in the loop without losing automation speed</a>. A step limit stops a loop from running forever; a human gate stops it from doing something expensive without asking first. Production agents usually want both.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">A Quick Note on Hybrids</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Neither pattern is pure in most real pipelines I've shipped. The replan edge from the previous section is already a hybrid: plan up front, but leave one door open back to the planner. I haven't gone further than that myself, no full reflection loop critiquing its own output before finalizing, because every pipeline I've actually needed in production was better served by one honest replan path than a second layer of self-review. That might be a "my workloads so far" limitation more than a universal rule, so take it as a starting point, not a ceiling.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of ReAct</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Handles genuinely unfamiliar environments, where you can't know the steps until you see the first result</li>
+<li>No separate planning pass to get wrong: there's nothing to plan</li>
+<li>Recovers from a bad tool result immediately, in the next reasoning step</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of ReAct</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>One model round-trip per step, even for steps that didn't need a decision</li>
+<li>No built-in sense of "I already answered this" without an explicit step limit</li>
+<li>Graph shape isn't knowable before you run it, which makes it harder to reason about ahead of time</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Plan-and-Execute</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>The graph shape is visible before anything runs, which makes it far easier to debug and checkpoint</li>
+<li>Execution steps can skip the LLM entirely once the plan is made, which is cheaper at scale</li>
+<li>Parallel steps with <code>Send</code> run concurrently instead of one at a time</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Plan-and-Execute</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Committed to a topology before the agent has seen a single real result</li>
+<li>A wrong assumption baked into the plan quietly poisons every step after it, unless you add a replan edge</li>
+<li>Writing the planner well is its own problem: a bad plan runs just as confidently as a good one</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Importing <code>create_react_agent</code> from a tutorial written before the deprecation.</strong> It still runs, but every new project should import <code>create_agent</code> from <code>langchain.agents</code> instead.</li>
+<li><strong>Shipping a ReAct loop with no step limit.</strong> Add a <code>ModelCallLimitMiddleware</code>-style counter from day one, not after the first runaway bill.</li>
+<li><strong>Treating a fixed plan as a guarantee of correctness.</strong> The plan's shape is deterministic. Each step's actual output still isn't. A plan-and-execute graph can run a perfectly ordered sequence of wrong answers just as easily as a right one.</li>
+<li><strong>Retrying executor steps without checking they're idempotent.</strong> A plan step that calls a tool with side effects (sending an email, writing a row) will duplicate that effect on retry unless the tool itself guards against it. The same checkpoint-and-retry concern from <a href="https://www.firstevolvenextscale.com/langgraph-checkpointing/">resuming an agent after a crash</a> applies just as much mid-plan.</li>
+<li><strong>No logging when <code>jump_to: "end"</code> fires.</strong> If a middleware cuts the loop short, say so in the output. Otherwise it looks like the agent answered normally when it actually hit a wall.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>My rule of thumb after rebuilding that pipeline a third time: if you can write the steps as a checklist before the agent starts, use plan-and-execute and let it run cheap. If you genuinely can't know step three until you've seen the result of step two, use ReAct and bound it with a middleware step limit from the first commit, not the first incident. Either way, update your imports: <code>create_react_agent</code> is on its way out, and <code>create_agent</code>'s middleware system is worth the five-minute migration on its own.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What are agent control flow patterns?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Agent control flow patterns describe how an LLM agent decides what to do next: one step at a time based on the latest observation (ReAct), or as a full plan laid out before execution starts (plan-and-execute). Most agent frameworks implement one of these two patterns, or a hybrid of both.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is create_react_agent deprecated?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes. LangChain's reference documentation marks <code>create_react_agent</code> from <code>langgraph.prebuilt</code> as deprecated in favor of <code>create_agent</code> from the <code>langchain</code> package, which builds the equivalent agent with a flexible middleware system attached.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can you combine ReAct and plan-and-execute?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes, and in practice most production pipelines end up as a hybrid. A common version plans the steps up front but adds an explicit edge back to the planner if an executor step's result invalidates the rest of the plan, so the graph can replan instead of continuing on bad assumptions.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How do you limit the number of steps a ReAct agent takes?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>With a custom middleware on <code>create_agent</code> that counts model calls in state, checks the count in a <code>before_model</code> hook, and jumps to the end of the graph once a limit is reached. Because every tool round-trip goes back through the model, capping model calls caps the agent's steps too.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Which is cheaper, ReAct or plan-and-execute?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>It depends on the task, not the pattern itself. ReAct pays one model round-trip for every single step, even trivial ones. Plan-and-execute pays for one planning call, after which execution steps can skip the model entirely if they don't need a decision, which is cheaper for long, mostly-mechanical pipelines, and not obviously cheaper for a three-step task that ReAct would've finished in three calls anyway.</p><!-- /wp:paragraph -->

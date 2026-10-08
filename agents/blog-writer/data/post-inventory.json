@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1650,
+      "date": "2026-10-07",
+      "title": "LangGraph Long-Term Memory: A Practical Vector Store Setup",
+      "slug": "langgraph-long-term-memory",
+      "link": "https://www.firstevolvenextscale.com/langgraph-long-term-memory/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Memory",
+        "LangGraph",
+        "LangGraph agents",
+        "LangGraph Long-Term Memory",
+        "Memory Scopes",
+        "pgvector",
+        "PostgresStore",
+        "Python",
+        "Semantic Search",
+        "Vector Store Setup"
+      ],
+      "excerpt": "A hands-on walkthrough of LangGraph’s long-term memory Store API: InMemoryStore for dev, PostgresStore with pgvector for production, and the dimension lock-in error that will eventually bite you."
+    },
+    {
       "id": 1644,
       "date": "2026-10-06",
       "title": "Ollama Tool Calling Agents: No LangChain Required",
@@ -951,6 +974,11 @@
       "name": "AI Tools"
     },
     {
+      "id": 451,
+      "count": 4,
+      "name": "LangGraph"
+    },
+    {
       "id": 438,
       "count": 4,
       "name": "Local LLM"
@@ -1016,11 +1044,6 @@
       "name": "Future of AI"
     },
     {
-      "id": 451,
-      "count": 3,
-      "name": "LangGraph"
-    },
-    {
       "id": 478,
       "count": 3,
       "name": "LangGraph debugging"
@@ -1041,9 +1064,19 @@
       "name": "Natural Language Processing"
     },
     {
+      "id": 112,
+      "count": 3,
+      "name": "Python"
+    },
+    {
       "id": 489,
       "count": 2,
       "name": "agent orchestration"
+    },
+    {
+      "id": 541,
+      "count": 2,
+      "name": "AI Agent Memory"
     },
     {
       "id": 542,
@@ -1161,14 +1194,19 @@
       "name": "LangChain"
     },
     {
+      "id": 491,
+      "count": 2,
+      "name": "LangGraph agents"
+    },
+    {
+      "id": 539,
+      "count": 2,
+      "name": "Memory Scopes"
+    },
+    {
       "id": 243,
       "count": 2,
       "name": "Prompt Engineering"
-    },
-    {
-      "id": 112,
-      "count": 2,
-      "name": "Python"
     },
     {
       "id": 373,
@@ -1254,11 +1292,6 @@
       "id": 324,
       "count": 1,
       "name": "AI Agent Guide"
-    },
-    {
-      "id": 541,
-      "count": 1,
-      "name": "AI Agent Memory"
     },
     {
       "id": 553,
@@ -2086,11 +2119,6 @@
       "name": "Langfuse"
     },
     {
-      "id": 491,
-      "count": 1,
-      "name": "LangGraph agents"
-    },
-    {
       "id": 531,
       "count": 1,
       "name": "LangGraph Checkpointing"
@@ -2099,6 +2127,11 @@
       "id": 484,
       "count": 1,
       "name": "LangGraph infinite loop"
+    },
+    {
+      "id": 578,
+      "count": 1,
+      "name": "LangGraph Long-Term Memory"
     },
     {
       "id": 485,
@@ -2224,11 +2257,6 @@
       "id": 307,
       "count": 1,
       "name": "Mem AI"
-    },
-    {
-      "id": 539,
-      "count": 1,
-      "name": "Memory Scopes"
     },
     {
       "id": 186,
@@ -2361,6 +2389,16 @@
       "name": "Organic Traffic"
     },
     {
+      "id": 575,
+      "count": 1,
+      "name": "pgvector"
+    },
+    {
+      "id": 574,
+      "count": 1,
+      "name": "PostgresStore"
+    },
+    {
       "id": 190,
       "count": 1,
       "name": "Product Design"
@@ -2489,6 +2527,11 @@
       "id": 565,
       "count": 1,
       "name": "Semantic Caching LLM Agents"
+    },
+    {
+      "id": 577,
+      "count": 1,
+      "name": "Semantic Search"
     },
     {
       "id": 392,
@@ -2689,6 +2732,11 @@
       "id": 570,
       "count": 1,
       "name": "Vector Cache"
+    },
+    {
+      "id": 576,
+      "count": 1,
+      "name": "Vector Store Setup"
     },
     {
       "id": 211,
@@ -2914,6 +2962,11 @@
       "id": 35,
       "count": 0,
       "name": "kelebek"
+    },
+    {
+      "id": 573,
+      "count": 0,
+      "name": "LangGraph Long Term Memory"
     },
     {
       "id": 212,

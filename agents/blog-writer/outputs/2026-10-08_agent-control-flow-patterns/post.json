@@ -1,0 +1,62 @@
+{
+  "title": "Agent Control Flow Patterns: ReAct vs. Plan-and-Execute in 2026",
+  "slug": "agent-control-flow-patterns",
+  "excerpt": "ReAct and plan-and-execute solve the same problem differently: deciding one step at a time versus committing to a plan up front. Here's when each one holds up, and where it breaks in production.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Agent Control Flow Patterns",
+    "ReAct Agents",
+    "Plan-and-Execute",
+    "Agent Architecture",
+    "LangGraph",
+    "LangChain",
+    "Agent Middleware",
+    "AI Agents",
+    "Python",
+    "Agent Step Limits"
+  ],
+  "focus_keyword": "agent control flow patterns",
+  "seo_title": "Agent Control Flow Patterns: ReAct vs Plan-and-Execute",
+  "meta_description": "Agent control flow patterns compared: when a ReAct loop beats a fixed plan-and-execute graph, and how to bound either one before it runs away in production.",
+  "social_message": "I rebuilt the same agent three times before admitting I'd picked the wrong control flow pattern.\n\nReAct and plan-and-execute solve the same problem two different ways: decide one step at a time, or commit to the whole plan up front. Here's when each one holds up, the official create_agent middleware for capping a runaway loop, and why create_react_agent is already deprecated.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/agent-control-flow-patterns/\n📌 On Instagram? Link in bio.\n\n#AgentControlFlowPatterns #ReActAgents #PlanAndExecute #LangChain #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "agent-control-flow-patterns-featured.jpg",
+      "title": "Agent Control Flow Patterns: ReAct vs Plan-and-Execute",
+      "alt": "Agent control flow patterns: a ReAct reason-act-observe loop and a plan-and-execute step sequence reaching the same goal.",
+      "caption": "",
+      "description": "Two agent control flow patterns side by side: a ReAct loop that decides one step at a time, and a plan-and-execute sequence that decides the whole route up front."
+    },
+    {
+      "key": "inline-1",
+      "file": "agent-control-flow-patterns-react-loop.webp",
+      "title": "ReAct Reason-Act-Observe Loop",
+      "alt": "ReAct agent control flow loop (reason, act, observe) beside the deprecated create_react_agent giving way to create_agent.",
+      "caption": "Reason, act, observe, repeat: the ReAct loop that create_agent compiles under the hood.",
+      "description": "Diagram of the ReAct reasoning loop (agent, tool call, observe) next to a visual of the deprecated create_react_agent function being replaced by create_agent."
+    },
+    {
+      "key": "inline-2",
+      "file": "agent-control-flow-patterns-plan-execute.webp",
+      "title": "Plan-and-Execute Fan-Out with the Send API",
+      "alt": "Plan-and-execute control flow: a planner fanning out steps in parallel via LangGraph's Send API before collecting results.",
+      "caption": "A planner fans out every step in parallel with LangGraph's Send API, then collects the results.",
+      "description": "Illustration of a plan-and-execute control flow where a planner produces an ordered list of steps that run in parallel via the Send API before converging into a result."
+    },
+    {
+      "key": "inline-3",
+      "file": "agent-control-flow-patterns-step-limit.webp",
+      "title": "Bounding a ReAct Loop with a Step Limit",
+      "alt": "Bounding a ReAct agent control flow loop in production with a middleware step limit that stops a runaway loop.",
+      "caption": "A middleware step limit stops a runaway ReAct loop before it turns into a runaway bill.",
+      "description": "Illustration of a ReAct agent loop being halted by a step-limit gate, representing the before_model middleware check that caps runaway tool-calling loops in production."
+    }
+  ]
+}

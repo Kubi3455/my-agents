@@ -7,7 +7,8 @@ Kural: Aynı **odak anahtar kelime** tabloda iki kez olamaz.
 
 | # | Konu (çalışma başlığı) | Odak anahtar kelime | Küme | Kategori | Neden şimdi | Eklendi |
 |---|------------------------|---------------------|------|----------|-------------|---------|
-| 1 | AutoGPT-style planning vs ReAct loops: picking an agent control flow | agent control flow patterns | agent loops | AI | Mimari karar noktası, forumlarda sık soru; mevcut karşılaştırma yazılarını tamamlar | 2026-10-02 |
+
+Kuyruk boş — yarınki döngüde TOPIC_SELECTION 10 aday üretme adımı tetiklenecek.
 
 ## Taslak / Yayında
 
@@ -21,6 +22,7 @@ Kural: Aynı **odak anahtar kelime** tabloda iki kez olamaz.
 | 2026-10-04 | Semantic Caching for LLM Agents: Cut Redundant API Calls | semantic caching for llm agents | yayında | 1637 | SEO 12/12, voice_check PASS, İnsan Sesi 8/8, 5 iç + 3 dış link, 10 etiket, 1 JPEG + 3 WebP görsel (3. inline görsel 1 kez yeniden üretildi: ilk denemede konudan sapıp kullanıcı kimlik/fraud eşleştirme sahnesi üretti). GPTCache kodu venv'de uçtan uca doğrulandı; odak kelime kuyruktaki "semantic caching llm agents"tan "semantic caching for llm agents"a küçük revize edildi (daha doğal ifade) |
 | 2026-10-06 | Ollama Tool Calling Agents: No LangChain Required | ollama tool calling agents | yayında | 1644 | SEO 12/12, voice_check PASS, İnsan Sesi 8/8, 6 iç + 4 dış link, 10 etiket, 1 JPEG + 3 WebP görsel (4/4 ilk denemede kabul, yeniden üretim yok). Araştırma ajanı yayından 1 gün önce çıkan Ollama v0.40.0'ı (streaming tool-call parser iyileştirmesi) buldu ve makaleye işlendi. Agent-loop kod örneği gerçek Ollama kurulumu olmadığı için dokümantasyon şekline uyan yerel bir mock HTTP sunucusuna karşı uçtan uca çalıştırılarak doğrulandı |
 | 2026-10-07 | LangGraph Long-Term Memory: A Practical Vector Store Setup | langgraph long-term memory | yayında | 1650 | SEO 12/12, voice_check PASS, İnsan Sesi 8/8, 5 iç + 4 dış link, 10 etiket, 1 JPEG + 3 WebP görsel (4/4 ilk denemede kabul). InMemoryStore + PostgresStore (pgvector) uçtan uca gerçek bir Postgres 16 kurulumuna (apt ile pgvector eklendi) ve gerçek OpenAI embeddings'e karşı test edildi; dims uyuşmazlığı hatası (`DataException: expected 1536 dimensions, not 384`) kendi ortamımda yeniden üretildi. İlk `publish --live` denemesi kapıdan "focus keyword missing from title" ile döndü (kuyruktaki odak kelime boşluklu "long term", başlık ise doğru biçimde tireli "Long-Term"; script literal substring kontrolü yapıyor) — odak kelimeyi tireli biçime düzelttim (bkz. MEMORY.md). Bu deneme zaten bir taslak (post 1650) oluşturmuştu; script'te var olan taslağı güncelleyen bir komut olmadığından, aynı taslağı REST API ile elle güncelleyip (meta + etiketler) yayınladım, ikinci bir yazı oluşturmadım. Kalite kapısının tüm diğer 12 maddesini manuel doğruladım (publish öncesi) |
+| 2026-10-08 | Agent Control Flow Patterns: ReAct vs. Plan-and-Execute in 2026 | agent control flow patterns | yayında | 1656 | SEO 12/12, voice_check PASS, İnsan Sesi 8/8, 5 iç + 4 dış resmi link, 10 etiket, 1 JPEG + 3 WebP görsel (4/4 ilk denemede kabul). İlk `publish --live` denemesi kapıdan geçti, `gate_failures: []`. Bulgu: çoğu ReAct tutorial'ının öğrettiği `create_react_agent` artık deprecated (resmi LangChain referansı `create_agent`'a geçişi istiyor); tüm kod örnekleri ve middleware hook isimleri bugün resmi dokümantasyondan doğrulandı, `py_compile` ile sözdizimi kontrol edildi. İlk taslakta em dash sınırını (≤3) aşmıştım (20 adet), yayından önce 0'a indirdim |
 
 ## Reddedilenler
 
