@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1656,
+      "date": "2026-10-08",
+      "title": "Agent Control Flow Patterns: ReAct vs. Plan-and-Execute in 2026",
+      "slug": "agent-control-flow-patterns",
+      "link": "https://www.firstevolvenextscale.com/agent-control-flow-patterns/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent Architecture",
+        "Agent Control Flow Patterns",
+        "Agent Middleware",
+        "Agent Step Limits",
+        "AI Agents",
+        "LangChain",
+        "LangGraph",
+        "Plan-and-Execute",
+        "Python",
+        "ReAct Agents"
+      ],
+      "excerpt": "ReAct and plan-and-execute solve the same problem differently: deciding one step at a time versus committing to a plan up front. Here’s when each one holds up, and where it breaks in production."
+    },
+    {
       "id": 1650,
       "date": "2026-10-07",
       "title": "LangGraph Long-Term Memory: A Practical Vector Store Setup",
@@ -920,7 +943,7 @@
   "tags": [
     {
       "id": 82,
-      "count": 10,
+      "count": 11,
       "name": "AI Agents"
     },
     {
@@ -954,6 +977,11 @@
       "name": "Generative AI"
     },
     {
+      "id": 451,
+      "count": 5,
+      "name": "LangGraph"
+    },
+    {
       "id": 74,
       "count": 5,
       "name": "Machine Learning"
@@ -974,11 +1002,6 @@
       "name": "AI Tools"
     },
     {
-      "id": 451,
-      "count": 4,
-      "name": "LangGraph"
-    },
-    {
       "id": 438,
       "count": 4,
       "name": "Local LLM"
@@ -992,6 +1015,11 @@
       "id": 453,
       "count": 4,
       "name": "Multi-Agent Systems"
+    },
+    {
+      "id": 112,
+      "count": 4,
+      "name": "Python"
     },
     {
       "id": 322,
@@ -1044,6 +1072,11 @@
       "name": "Future of AI"
     },
     {
+      "id": 460,
+      "count": 3,
+      "name": "LangChain"
+    },
+    {
       "id": 478,
       "count": 3,
       "name": "LangGraph debugging"
@@ -1064,9 +1097,9 @@
       "name": "Natural Language Processing"
     },
     {
-      "id": 112,
-      "count": 3,
-      "name": "Python"
+      "id": 468,
+      "count": 2,
+      "name": "Agent Architecture"
     },
     {
       "id": 489,
@@ -1189,11 +1222,6 @@
       "name": "How Artificial Intelligence Works"
     },
     {
-      "id": 460,
-      "count": 2,
-      "name": "LangChain"
-    },
-    {
       "id": 491,
       "count": 2,
       "name": "LangGraph agents"
@@ -1239,9 +1267,9 @@
       "name": "Accessibility Design"
     },
     {
-      "id": 468,
+      "id": 579,
       "count": 1,
-      "name": "Agent Architecture"
+      "name": "Agent Control Flow Patterns"
     },
     {
       "id": 529,
@@ -1249,9 +1277,19 @@
       "name": "agent failure modes"
     },
     {
+      "id": 582,
+      "count": 1,
+      "name": "Agent Middleware"
+    },
+    {
       "id": 533,
       "count": 1,
       "name": "Agent State Persistence"
+    },
+    {
+      "id": 583,
+      "count": 1,
+      "name": "Agent Step Limits"
     },
     {
       "id": 561,
@@ -2394,6 +2432,11 @@
       "name": "pgvector"
     },
     {
+      "id": 581,
+      "count": 1,
+      "name": "Plan-and-Execute"
+    },
+    {
       "id": 574,
       "count": 1,
       "name": "PostgresStore"
@@ -2452,6 +2495,11 @@
       "id": 499,
       "count": 1,
       "name": "Python AI"
+    },
+    {
+      "id": 580,
+      "count": 1,
+      "name": "ReAct Agents"
     },
     {
       "id": 567,

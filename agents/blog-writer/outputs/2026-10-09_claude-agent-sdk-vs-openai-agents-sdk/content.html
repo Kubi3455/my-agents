@@ -1,0 +1,192 @@
+<!-- wp:paragraph --><p>Last month a client asked me a question I didn't have a crisp answer for: should their support-ticket router be built on the Claude Agent SDK or the OpenAI Agents SDK? I'd shipped small things with both, but never run a real Claude Agent SDK vs OpenAI Agents SDK comparison on the same workflow, side by side, with the same failure cases in mind. So that's what I did.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've looked at either SDK's docs, you already know the surface-level pitch sounds identical: give an LLM some tools, let it <a href="https://www.firstevolvenextscale.com/agent-control-flow-patterns/">plan its own steps</a>, get a result back. The marketing copy barely differs. What differs is what happens the moment your agent needs to delegate a subtask, or a tool call needs to be checked before it runs. That's where the two architectures stop looking alike.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what I found after building the same two-specialist workflow in both: where the delegation models actually diverge, where the safety models solve different problems, and the three mistakes I made that you probably will too.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Claude Agent SDK vs OpenAI Agents SDK: Two Different Mental Models</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>The one-line version: Claude's SDK spawns <strong>subagents</strong> through a built-in <code>Agent</code> tool, each one running in an isolated context that can execute in parallel. OpenAI's SDK does <strong>handoffs</strong>: one agent transfers the entire conversation to another, and only one agent is "active" at a time.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That sounds like a minor implementation detail. It isn't. A subagent's context starts fresh. It never sees your main conversation history, only the prompt string you hand it through the tool call. A handoff, by contrast, carries the conversation forward; the new agent picks up where the last one left off, same history, same thread. Pick the wrong mental model for your use case and you'll spend a day debugging an agent that "forgot" something it was never actually given, or one that's dragging around context it didn't need. It's the same layer of confusion I ran into <a href="https://www.firstevolvenextscale.com/autogpt-vs-crewai-vs-langgraph/">comparing AutoGPT, CrewAI, and LangGraph</a> a while back, just one level up the stack.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">How the Claude Agent SDK Delegates Work</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Install is <code>pip install claude-agent-sdk</code> (or <code>uv add claude-agent-sdk</code>), and the package bundles its own Claude Code binary, so you don't install Claude Code separately on most platforms. Set <code>ANTHROPIC_API_KEY</code> and you're running. The entry point is <code>query()</code>, an async generator that streams messages as the agent reasons, calls tools, and reports results.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Subagents are defined with <code>AgentDefinition</code> objects and handed to <code>query()</code> through the <code>agents</code> option. Claude invokes them through a built-in tool literally named <code>Agent</code> (it was called <code>Task</code> before Claude Code v2.1.63, so if you're matching on tool names for logging, check for both):</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition
+
+async def main():
+    async for message in query(
+        prompt="A customer wants a refund and is also asking about their invoice.",
+        options=ClaudeAgentOptions(
+            allowed_tools=["Read", "Grep", "Agent"],
+            agents={
+                "billing-specialist": AgentDefinition(
+                    description="Handles invoice and payment questions.",
+                    prompt="You answer billing questions precisely. Cite the invoice line items you used.",
+                    tools=["Read", "Grep"],
+                ),
+                "refunds-specialist": AgentDefinition(
+                    description="Handles refund eligibility and processing.",
+                    prompt="You check refund policy against order history before approving anything.",
+                    tools=["Read", "Grep"],
+                    model="sonnet",
+                ),
+            },
+        ),
+    ):
+        if hasattr(message, "result"):
+            print(message.result)
+
+asyncio.run(main())</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Claude decides on its own when to spawn which subagent, matching your task to each one's <code>description</code>. The two specialists can run concurrently: the <a href="https://code.claude.com/docs/en/agent-sdk/subagents" rel="noopener">docs default to 20 subagents at once and a nesting depth of 3</a> (subagents spawning their own subagents), both tunable through environment variables. There's also a hard spend cap, <code>max_budget_usd</code>, that counts subagent API calls toward the same total and kills the query with an <code>error_max_budget_usd</code> result when it's hit. Nobody enjoys discovering a runaway agent tree after the invoice arrives, so I'd set this on anything that isn't a quick local test.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-1}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">How the OpenAI Agents SDK Delegates Work</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Install is <code>pip install openai-agents</code>. The core primitives are <code>Agent</code> and <code>Runner</code>. You build an agent with instructions and tools, then run it with <code>Runner.run_sync</code> (or the async <code>Runner.run</code>):</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from agents import Agent, Runner, handoff
+
+billing_agent = Agent(
+    name="Billing agent",
+    instructions="Answer invoice and payment questions precisely.",
+)
+
+refund_agent = Agent(
+    name="Refund agent",
+    instructions="Check refund policy against order history before approving anything.",
+)
+
+triage_agent = Agent(
+    name="Triage agent",
+    instructions="Route billing questions to Billing agent, refund requests to Refund agent.",
+    handoffs=[billing_agent, handoff(refund_agent)],
+)
+
+result = Runner.run_sync(triage_agent, "I want a refund and I have a billing question.")
+print(result.final_output)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Every agent you pass into <code>handoffs</code> becomes a tool the model can call, named <code>transfer_to_&lt;agent_name&gt;</code> by default. Calling it hands the entire conversation to that agent. It changes who's driving the conversation, not just who's handling one subtask. If you need structured data passed along with the handoff rather than just the conversation history, wrap the target in <a href="https://openai.github.io/openai-agents-python/handoffs/" rel="noopener"><code>handoff()</code></a> and give it an <code>input_type</code> (a Pydantic model) plus an <code>on_handoff</code> callback that receives the validated data. That's the piece most tutorials skip, and it's the piece you actually need the moment "route to refunds" has to carry an order ID along with it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Guardrails vs Permissions: Two Different Safety Models</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the confusing part: neither SDK's safety system maps cleanly onto the other's, because they're solving different problems.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>OpenAI's guardrails validate <strong>content</strong>: the input before the agent processes it, or the output before it reaches the caller. You write a function, decorate it with <a href="https://openai.github.io/openai-agents-python/guardrails/" rel="noopener"><code>@input_guardrail</code> or <code>@output_guardrail</code></a>, and return a <code>GuardrailFunctionOutput</code> with a <code>tripwire_triggered</code> flag:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from agents import Agent, GuardrailFunctionOutput, InputGuardrailTripwireTriggered, Runner
+from agents.decorators import input_guardrail
+
+@input_guardrail
+async def block_policy_violations(ctx, agent, user_input):
+    text = user_input if isinstance(user_input, str) else str(user_input)
+    return GuardrailFunctionOutput(
+        output_info="policy keyword check",
+        tripwire_triggered="social security number" in text.lower(),
+    )
+
+agent = Agent(
+    name="Support agent",
+    instructions="Help customers with billing questions.",
+    input_guardrails=[block_policy_violations],
+)
+
+try:
+    Runner.run_sync(agent, "Can you look up my refund using my social security number 123-45-6789?")
+except InputGuardrailTripwireTriggered:
+    print("Blocked: input guardrail tripped.")</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Miss that <code>try/except</code> and the tripwire doesn't fail gracefully, it raises straight through your call stack. I'd treat every guardrail as something that can throw, not just something that can flag.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Claude's permission system validates <strong>tool calls</strong>, not content. It's a <a href="https://code.claude.com/docs/en/agent-sdk/permissions" rel="noopener">six-step pipeline</a> (hooks, deny rules, ask rules, permission mode, allow rules, then your <code>canUseTool</code> callback) that decides whether a specific tool invocation is allowed to run at all. The permission modes range from <code>default</code> (ask when unsure) through <code>acceptEdits</code> (auto-approve file writes) to <code>bypassPermissions</code>, which approves nearly everything and which Claude Code refuses to even start under <code>sudo</code> outside a recognized sandbox. There's no equivalent of "check whether this text contains a policy violation" built in. You'd build that yourself with a <code>PreToolUse</code> hook, which is really just a <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">human-in-the-loop check</a> you wire up on your own.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-2}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Side-by-Side: Claude Agent SDK vs OpenAI Agents SDK</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Dimension</th><th>Claude Agent SDK</th><th>OpenAI Agents SDK</th></tr></thead>
+<tbody>
+<tr><td>Delegation model</td><td>Subagents via the <code>Agent</code> tool; isolated context, can run in parallel</td><td>Handoffs; conversation transfers to the next agent, same history</td></tr>
+<tr><td>Install</td><td><code>pip install claude-agent-sdk</code> (bundles a Claude Code binary)</td><td><code>pip install openai-agents</code></td></tr>
+<tr><td>Core entry point</td><td><code>query()</code>, streams an async iterator of messages</td><td><code>Runner.run_sync</code> / <code>Runner.run</code></td></tr>
+<tr><td>Safety primitive</td><td>Permission modes + hooks, gates tool execution</td><td>Input/output guardrails, gates content, raises on trip</td></tr>
+<tr><td>Concurrency controls</td><td>Built-in: max concurrent subagents (default 20), max depth (default 3)</td><td>Not documented as a built-in primitive; you'd manage it yourself</td></tr>
+<tr><td>Spend cap</td><td><code>max_budget_usd</code>, hard stop, counts subagent spend</td><td>Not surfaced in the official docs I checked; build your own tracking</td></tr>
+<tr><td>Built for</td><td>Operating a computer: reading, editing, running commands</td><td>Routing between domain specialists</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons of Each</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of the Claude Agent SDK</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Subagent isolation keeps a noisy exploration (dozens of files read, grepped, discarded) from <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">bloating your agent's context window</a>; the parent only sees the final summary</li>
+<li>Hard budget and concurrency caps are built in, not something you bolt on after a surprising bill</li>
+<li>The tool surface (Read, Edit, Bash, WebSearch, MCP) is the same one Claude Code itself runs on, so it's battle-tested on exactly the kind of "operate the filesystem and shell" tasks a lot of internal tooling needs</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of the Claude Agent SDK</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>A subagent's context is genuinely empty except for the prompt string you pass it. Forget to include a file path or an error message and it has no way to ask the parent for it</li>
+<li>A bare allow-rule entry like <code>allowed_tools=["Read"]</code> auto-approves that tool before your <code>canUseTool</code> callback ever runs, so a safety check you wrote there is silently skipped for that tool</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of the OpenAI Agents SDK</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Guardrails are a clean, explicit primitive for "check this content before/after," which is a different and genuinely useful thing from gating tool calls</li>
+<li>Handoffs map naturally onto a triage-and-route structure: if your actual problem is "figure out which specialist should own this conversation," the model fits without any adapting</li>
+<li>Built-in <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">tracing gives you a visual run-through</a> of the whole session without wiring up your own logging</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of the OpenAI Agents SDK</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>Because the handoff tool name is generated from the agent's name (<code>transfer_to_&lt;agent_name&gt;</code>), two agents with the same name produce identical tool names to the model. Worth checking if you're generating agents dynamically</li>
+<li>No documented built-in spend or concurrency cap in what I reviewed; if an agent hands off in a loop, you're the one who has to notice</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>{{IMG:inline-3}}</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><strong>Treating a subagent like a function call with memory.</strong> It isn't. Unless you explicitly fork the conversation, a Claude subagent starts with zero parent history. I lost twenty minutes once to a subagent that kept "forgetting" a decision I'd made three turns earlier in the main thread. It had never seen that turn in the first place.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Not catching the tripwire exception.</strong> OpenAI's own example code wraps the guardrail-protected run in <code>try/except</code>. Skip that and your service returns a 500 instead of a clean "that request was blocked" response.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Assuming <code>allowed_tools</code> constrains <code>bypassPermissions</code> mode.</strong> It doesn't. The docs are explicit here: listing specific tools in <code>allowed_tools</code> while also setting <code>permission_mode="bypassPermissions"</code> still approves every other tool, Bash and Write included, because unlisted tools fall through to the permission mode, not to a denial. If you need bypass mode with limits, use <code>disallowed_tools</code> instead.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Running headless without a budget cap.</strong> Claude's subagents can spawn their own subagents up to three layers deep by default, and Opus-family models delegate more eagerly than smaller ones. Set <code>max_budget_usd</code> on anything unattended. There's no equivalent safety net on the OpenAI side if a <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">handoff chain starts looping</a>; you have to watch for it yourself, probably through tracing.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If your agent's job is closer to "operate on a codebase or a filesystem and get something done," I'd reach for the Claude Agent SDK: the tool permission model and the subagent isolation were clearly built for exactly that, because they're the same machinery running Claude Code itself. If your job is closer to "take an incoming request and route it to the right specialist, with clear content rules at the boundary," the OpenAI Agents SDK's handoffs and guardrails fit that shape without any bending.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Don't pick based on which one you read about first. Build the smallest version of your actual workflow in both, a day each tops, and see which one's failure modes are the ones you're prepared to debug at 2am. That's the only test that actually tells you anything.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need Claude Code installed separately to use the Claude Agent SDK?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Usually not. Both the Python and TypeScript packages bundle a native Claude Code binary. The exception is when pip installs a source distribution instead of a platform wheel (ARM64 Windows is the case the docs call out), in which case you install Claude Code natively and the SDK finds it on your <code>PATH</code>.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I use both SDKs in the same project?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Nothing technical stops you from calling both from one service. I wouldn't make it the default plan, though. The harder part isn't the code, it's keeping two different delegation mental models (subagents vs handoffs) straight across a team that has to maintain both.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Which SDK is cheaper to run?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Neither one, inherently. Cost comes down to model choice and how many agents you let spin up. The practical difference is tooling: Claude's SDK has a <code>max_budget_usd</code> hard stop that counts subagent spend against the same total. The OpenAI Agents SDK docs I checked don't surface an equivalent built-in cap, so you'd track spend yourself, likely through tracing.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What happens when an OpenAI guardrail trips?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>The run raises <code>InputGuardrailTripwireTriggered</code> or <code>OutputGuardrailTripwireTriggered</code> rather than returning a flagged result you have to check for. If you don't wrap the call in <code>try/except</code>, that exception propagates straight up through your own code.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do Claude's subagents run in parallel by default?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>They can. Claude decides when to spawn one and whether to run it in the background; by default, up to 20 subagents can run concurrently and nesting goes three layers deep, both adjustable through environment variables (<code>CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS</code>, <code>CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH</code>).</p><!-- /wp:paragraph -->

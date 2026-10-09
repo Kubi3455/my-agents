@@ -1,0 +1,58 @@
+{
+  "title": "Claude Agent SDK vs OpenAI Agents SDK: A 2026 Comparison",
+  "slug": "claude-agent-sdk-vs-openai-agents-sdk",
+  "excerpt": "Subagents vs handoffs, permission modes vs guardrails: a docs-verified look at where the Claude Agent SDK and OpenAI Agents SDK actually diverge.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Claude Agent SDK",
+    "OpenAI Agents SDK",
+    "AI Agents",
+    "Multi-Agent Systems",
+    "Subagents",
+    "Agent Handoffs",
+    "AI Agent Guardrails",
+    "Python",
+    "Agent Permissions",
+    "AI Agent Frameworks"
+  ],
+  "focus_keyword": "claude agent sdk vs openai agents sdk",
+  "seo_title": "Claude Agent SDK vs OpenAI Agents SDK: A 2026 Comparison",
+  "meta_description": "A hands-on Claude Agent SDK vs OpenAI Agents SDK comparison: subagents vs handoffs, permission modes vs guardrails, and where each one breaks.",
+  "social_message": "Spent a day building the same support-router agent twice: once on the Claude Agent SDK, once on the OpenAI Agents SDK.\n\nThey solve delegation completely differently. Claude spawns isolated parallel subagents (up to 20 at once, 3 layers deep). OpenAI hands the whole conversation off to the next agent instead. I also hit a real gotcha: a bare allow-rule can silently skip your own safety callback.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/\n📌 On Instagram? Link in bio.\n\n#ClaudeAgentSDK #OpenAIAgentsSDK #MultiAgentSystems #Python #AIAgents #AIEngineering",
+  "quality": {"seo_checklist": 12, "human_voice_test": 8, "images_reviewed": true},
+  "images": [
+    {
+      "key": "featured",
+      "file": "claude-agent-sdk-vs-openai-agents-sdk-featured.jpg",
+      "title": "Claude Agent SDK subagents vs OpenAI Agents SDK handoffs",
+      "alt": "Diagram comparing the Claude Agent SDK's parallel subagents to the OpenAI Agents SDK's sequential handoffs, with a decision fork labeled Pick One.",
+      "caption": "",
+      "description": "Side-by-side diagram of the two delegation models at the heart of the Claude Agent SDK vs OpenAI Agents SDK decision: isolated parallel subagents versus a sequential handoff chain."
+    },
+    {
+      "key": "inline-1",
+      "file": "claude-agent-sdk-vs-openai-agents-sdk-concurrency-budget.webp",
+      "title": "Claude Agent SDK subagent depth, concurrency, and budget caps",
+      "alt": "Tree diagram of Claude Agent SDK subagents nested three layers deep with a 20-agent concurrency limit and a budget gauge approaching its cap.",
+      "caption": "Subagents can nest three layers deep by default, with a 20-agent concurrency cap and an optional hard budget limit.",
+      "description": "Illustrates the Claude Agent SDK's built-in controls on subagent spawning: max depth, max concurrency, and the max_budget_usd spend cap."
+    },
+    {
+      "key": "inline-2",
+      "file": "claude-agent-sdk-vs-openai-agents-sdk-permissions-guardrails.webp",
+      "title": "Permission pipeline vs guardrail tripwire",
+      "alt": "Comparison of the Claude Agent SDK's six-step permission pipeline (hooks, deny rules, ask rules, permission mode, allow rules, callback) against the OpenAI Agents SDK's input/output guardrail tripwire.",
+      "caption": "Two different safety models: gating tool calls step by step versus validating content at the input/output boundary.",
+      "description": "Shows the Claude Agent SDK's six-step permission evaluation order next to the OpenAI Agents SDK's guardrail tripwire pattern for input and output validation."
+    },
+    {
+      "key": "inline-3",
+      "file": "claude-agent-sdk-vs-openai-agents-sdk-decision-flow.webp",
+      "title": "Decision flow: Claude Agent SDK vs OpenAI Agents SDK",
+      "alt": "Flowchart for choosing between the Claude Agent SDK and OpenAI Agents SDK based on whether the task operates files and shell commands or routes between specialist agents.",
+      "caption": "",
+      "description": "A simple decision flow for picking a framework: Claude Agent SDK for operating a filesystem or shell, OpenAI Agents SDK for routing between specialists."
+    }
+  ]
+}
