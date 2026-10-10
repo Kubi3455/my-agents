@@ -2,6 +2,52 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1668,
+      "date": "2026-10-10",
+      "title": "A2A Protocol Explained: How AI Agents Talk to Each Other",
+      "slug": "a2a-protocol-explained",
+      "link": "https://www.firstevolvenextscale.com/a2a-protocol-explained/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "A2A Protocol",
+        "Agent Interoperability",
+        "Agent To Agent Communication",
+        "Agentic AI",
+        "AI Agent Protocols",
+        "AI Agents",
+        "FastAPI",
+        "MCP",
+        "Multi-Agent Systems",
+        "Python"
+      ],
+      "excerpt": "A2A lets agents from different vendors discover each other and hand off tasks over HTTP. Here’s how the protocol actually works, a server you can run, and where it breaks."
+    },
+    {
+      "id": 1662,
+      "date": "2026-10-09",
+      "title": "Claude Agent SDK vs OpenAI Agents SDK: A 2026 Comparison",
+      "slug": "claude-agent-sdk-vs-openai-agents-sdk",
+      "link": "https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent Handoffs",
+        "Agent Permissions",
+        "AI Agent Frameworks",
+        "AI Agent Guardrails",
+        "AI Agents",
+        "Claude Agent SDK",
+        "Multi-Agent Systems",
+        "OpenAI Agents SDK",
+        "Python",
+        "Subagents"
+      ],
+      "excerpt": "Subagents vs handoffs, permission modes vs guardrails: a docs-verified look at where the Claude Agent SDK and OpenAI Agents SDK actually diverge."
+    },
+    {
       "id": 1656,
       "date": "2026-10-08",
       "title": "Agent Control Flow Patterns: ReAct vs. Plan-and-Execute in 2026",
@@ -943,7 +989,7 @@
   "tags": [
     {
       "id": 82,
-      "count": 11,
+      "count": 13,
       "name": "AI Agents"
     },
     {
@@ -960,6 +1006,16 @@
       "id": 83,
       "count": 6,
       "name": "AI Automation"
+    },
+    {
+      "id": 453,
+      "count": 6,
+      "name": "Multi-Agent Systems"
+    },
+    {
+      "id": 112,
+      "count": 6,
+      "name": "Python"
     },
     {
       "id": 461,
@@ -992,6 +1048,11 @@
       "name": "Ollama"
     },
     {
+      "id": 322,
+      "count": 4,
+      "name": "Agentic AI"
+    },
+    {
       "id": 464,
       "count": 4,
       "name": "AI Agent Loops"
@@ -1010,21 +1071,6 @@
       "id": 454,
       "count": 4,
       "name": "Multi-Agent AI"
-    },
-    {
-      "id": 453,
-      "count": 4,
-      "name": "Multi-Agent Systems"
-    },
-    {
-      "id": 112,
-      "count": 4,
-      "name": "Python"
-    },
-    {
-      "id": 322,
-      "count": 3,
-      "name": "Agentic AI"
     },
     {
       "id": 72,
@@ -1262,6 +1308,11 @@
       "name": "429 Errors"
     },
     {
+      "id": 591,
+      "count": 1,
+      "name": "A2A Protocol"
+    },
+    {
       "id": 180,
       "count": 1,
       "name": "Accessibility Design"
@@ -1277,9 +1328,24 @@
       "name": "agent failure modes"
     },
     {
+      "id": 587,
+      "count": 1,
+      "name": "Agent Handoffs"
+    },
+    {
+      "id": 596,
+      "count": 1,
+      "name": "Agent Interoperability"
+    },
+    {
       "id": 582,
       "count": 1,
       "name": "Agent Middleware"
+    },
+    {
+      "id": 589,
+      "count": 1,
+      "name": "Agent Permissions"
     },
     {
       "id": 533,
@@ -1290,6 +1356,11 @@
       "id": 583,
       "count": 1,
       "name": "Agent Step Limits"
+    },
+    {
+      "id": 592,
+      "count": 1,
+      "name": "Agent To Agent Communication"
     },
     {
       "id": 561,
@@ -1327,9 +1398,24 @@
       "name": "AI Agent Examples"
     },
     {
+      "id": 590,
+      "count": 1,
+      "name": "AI Agent Frameworks"
+    },
+    {
+      "id": 588,
+      "count": 1,
+      "name": "AI Agent Guardrails"
+    },
+    {
       "id": 324,
       "count": 1,
       "name": "AI Agent Guide"
+    },
+    {
+      "id": 593,
+      "count": 1,
+      "name": "AI Agent Protocols"
     },
     {
       "id": 553,
@@ -1717,6 +1803,11 @@
       "name": "Chiplet Technology"
     },
     {
+      "id": 584,
+      "count": 1,
+      "name": "Claude Agent SDK"
+    },
+    {
       "id": 94,
       "count": 1,
       "name": "Claude AI"
@@ -1890,6 +1981,11 @@
       "id": 555,
       "count": 1,
       "name": "Exponential Backoff"
+    },
+    {
+      "id": 595,
+      "count": 1,
+      "name": "FastAPI"
     },
     {
       "id": 467,
@@ -2277,6 +2373,11 @@
       "name": "Machine Learning Hardware"
     },
     {
+      "id": 594,
+      "count": 1,
+      "name": "MCP"
+    },
+    {
       "id": 544,
       "count": 1,
       "name": "MCP Context Bloat"
@@ -2410,6 +2511,11 @@
       "id": 442,
       "count": 1,
       "name": "Open Source AI"
+    },
+    {
+      "id": 585,
+      "count": 1,
+      "name": "OpenAI Agents SDK"
     },
     {
       "id": 560,
@@ -2650,6 +2756,11 @@
       "id": 503,
       "count": 1,
       "name": "structured outputs in local LLMs"
+    },
+    {
+      "id": 586,
+      "count": 1,
+      "name": "Subagents"
     },
     {
       "id": 475,

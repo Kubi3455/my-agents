@@ -1,0 +1,62 @@
+{
+  "title": "A2A Protocol Explained: How AI Agents Talk to Each Other",
+  "slug": "a2a-protocol-explained",
+  "excerpt": "A2A lets agents from different vendors discover each other and hand off tasks over HTTP. Here's how the protocol actually works, a server you can run, and where it breaks.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "A2A Protocol",
+    "Agent To Agent Communication",
+    "AI Agent Protocols",
+    "Multi-Agent Systems",
+    "MCP",
+    "FastAPI",
+    "Python",
+    "Agentic AI",
+    "AI Agents",
+    "Agent Interoperability"
+  ],
+  "focus_keyword": "a2a protocol",
+  "seo_title": "A2A Protocol Explained: How AI Agents Talk to Each Other",
+  "meta_description": "A2A protocol basics explained: AgentCard, Task, and Message types, a working Python server, and the version-header gotcha that breaks older tutorials.",
+  "social_message": "I spent an afternoon debugging a 400 error that turned out to be a missing HTTP header.\n\nA2A just hit v1.0 and joined the Agentic AI Foundation alongside MCP. New post covers the real AgentCard/Task/Message schema, a working Python server you can run, and the version-header gotcha that breaks older tutorials.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/a2a-protocol-explained/\n📌 On Instagram? Link in bio.\n\n#A2AProtocol #AgentToAgent #MultiAgentSystems #Python #AIAgents #AgenticAI",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "a2a-protocol-explained-featured.jpg",
+      "title": "A2A protocol agent-to-agent handshake between two vendor servers",
+      "alt": "A2A protocol diagram: two vendor agent servers exchange an Agent Card and move a task through its lifecycle.",
+      "caption": "",
+      "description": "Two agents from different vendors exchange an Agent Card and move a task through its lifecycle over the A2A protocol."
+    },
+    {
+      "key": "inline-1",
+      "file": "a2a-protocol-explained-core-pieces.webp",
+      "title": "A2A protocol core types: Agent Card, Task, Message, Part",
+      "alt": "A2A protocol core types: Agent Card, Task, Message, and Part nested in order.",
+      "caption": "The four core A2A protocol types, nested in the order you'll actually use them.",
+      "description": "Shows how Agent Card, Task, Message, and Part relate to each other in the A2A protocol's 1.0 schema."
+    },
+    {
+      "key": "inline-2",
+      "file": "a2a-protocol-explained-version-header.webp",
+      "title": "A2A-Version header requirement for A2A protocol requests",
+      "alt": "A2A protocol request missing the A2A-Version header gets rejected; one with the header succeeds.",
+      "caption": "Skip the A2A-Version header and a 1.0-only server rejects the request as an unsupported older version.",
+      "description": "Illustrates why an A2A protocol request without an explicit A2A-Version header defaults to version 0.3 and gets rejected by a 1.0 handler."
+    },
+    {
+      "key": "inline-3",
+      "file": "a2a-protocol-explained-vs-mcp.webp",
+      "title": "A2A protocol vs MCP: agent-to-agent vs agent-to-tool",
+      "alt": "A2A protocol connects agent to agent directly; MCP connects an agent to its tools and data.",
+      "caption": "A2A connects agent to agent. MCP connects agent to tool. Different layer, same stack.",
+      "description": "Visual comparison showing the A2A protocol handles agent-to-agent communication while MCP handles agent-to-tool communication."
+    }
+  ]
+}

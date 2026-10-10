@@ -1,0 +1,179 @@
+<!-- wp:paragraph --><p>Last week I tried to wire up a quick demo: one agent that plans a trip, handing off the booking step to a completely separate agent running on someone else's server. Should've taken twenty minutes. It took most of an afternoon, because every tutorial I found was written against an older version of the A2A protocol, and the package I'd just installed had quietly moved the furniture around. Classes gone, fields renamed, a request that worked in the blog post returning a 400 in my terminal.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've tried to get two agents from different vendors talking and hit a wall that had nothing to do with your prompt, you already know this feeling. The model isn't the problem. The wire format is.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what the A2A protocol actually specifies, what changed when it hit version 1.0 this year, the parts that'll break a tutorial written six months ago, and a server you can run and poke at yourself in about the time it takes to read this.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What the A2A Protocol Actually Solves</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Every multi-agent framework I've used, LangGraph, CrewAI, the Claude Agent SDK's subagents, has its own way of handing work from one agent to another. That's fine inside one process. It falls apart the moment "another agent" means a different vendor, a different language, a different company's servers entirely. You can't import someone else's agent class. You need a wire protocol both sides agree on, the same way two services agree on REST instead of each inventing their own binary format.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That's the whole job of A2A: a vendor-neutral way for one agent to discover what another agent can do, hand it a task, and get structured results back, over HTTP, regardless of what either side is built with. Google open-sourced it in 2025, and in August 2026 it moved under the <a href="https://aaif.io/blog/a2a-joins-aaif">Agentic AI Foundation</a> as a hosted project, the same neutral home that now also hosts MCP. The announcement puts it plainly: MCP standardizes how an agent talks to a tool. A2A standardizes how an agent talks to another agent. Different layer, same stack. The AAIF post claims over 150 backing organizations and cites Huawei's Celia assistant and Tencent's WeChat talking to other OEM assistants over A2A in production, for what that's worth coming from the foundation's own announcement.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I've written before about <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">what MCP actually does to your agent's context window</a>, and A2A is a genuinely separate concern from that. You can run both in the same system without either stepping on the other: MCP connects your agent to its tools, A2A connects your agent to somebody else's agent.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Core Pieces: Agent Card, Task, Message, Part</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Four types do almost all the work in the <a href="https://a2a-protocol.org/latest/specification/">official A2A 1.0 specification</a>, and I'd read them in this order:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>AgentCard:</strong> a JSON document an agent publishes describing what it is, what it can do, and how to authenticate with it. Think of it as a service's OpenAPI spec, except every A2A agent is required to expose one at a well-known path.</li>
+<li><strong>Task:</strong> a stateful unit of work with an ID, moving through a defined lifecycle (submitted, working, input-required, completed, failed, and a few others).</li>
+<li><strong>Message:</strong> one turn of communication, tagged with a role (user or agent) and made up of one or more Parts.</li>
+<li><strong>Part:</strong> the actual content: text, a file reference, or structured data. A Message is just a bag of Parts with a role attached.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>Here's the part I got wrong on my first attempt, and it's a good test of whether a tutorial is current. Older A2A examples put a top-level <code>url</code> field directly on the AgentCard, pointing at the agent's endpoint. In the 1.0 schema, that field doesn't exist anymore. Endpoints moved into a <code>supported_interfaces</code> list, so one agent can advertise multiple transports (JSON-RPC, gRPC, REST) instead of being locked to one. Try the old pattern against a current install of <code>a2a-sdk</code> and you don't get a silent ignore, you get a hard failure:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>&gt;&gt;&gt; from a2a.types import AgentCard
+&gt;&gt;&gt; AgentCard(name="x", description="y", version="1.0", url="http://localhost:9999/")
+ValueError: Protocol message AgentCard has no "url" field.</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran that exact line against <code>a2a-sdk</code> 1.2.2 to confirm it wasn't a typo on my end. It wasn't. If you're copying a server example from a blog post, check the <code>a2a-sdk</code> version it was written against before you spend an hour debugging a schema that no longer exists.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Building a Minimal A2A Server in Python</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Skip the official helloworld sample if it imports <code>A2AStarletteApplication</code>. That class is gone from the current <a href="https://github.com/a2aproject/a2a-python"><code>a2a-sdk</code> source on GitHub</a>. The 1.x server layer builds on plain FastAPI instead, wiring in three separate route groups: one for the agent card, one for JSON-RPC, one for REST. Here's a full, working echo agent. I ran this exact code against a real test client before putting it here:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import uuid
+from fastapi import FastAPI
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.routes.agent_card_routes import create_agent_card_routes
+from a2a.server.routes.fastapi_routes import add_a2a_routes_to_fastapi
+from a2a.server.routes.jsonrpc_routes import create_jsonrpc_routes
+from a2a.server.routes.rest_routes import create_rest_routes
+from a2a.server.tasks import InMemoryTaskStore
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message, Part, Role
+
+class EchoExecutor(AgentExecutor):
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        reply = Message(
+            message_id=str(uuid.uuid4()),
+            context_id=context.context_id,
+            role=Role.ROLE_AGENT,
+            parts=[Part(text=f"echo: {context.get_user_input()}")],
+        )
+        await event_queue.enqueue_event(reply)
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise NotImplementedError
+
+agent_card = AgentCard(
+    name="Echo Agent",
+    description="Echoes back whatever text you send it.",
+    version="1.0.0",
+    capabilities=AgentCapabilities(streaming=False),
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain"],
+    skills=[AgentSkill(id="echo", name="Echo", description="Repeats input text back.", tags=["demo"])],
+)
+
+handler = DefaultRequestHandler(
+    agent_executor=EchoExecutor(),
+    task_store=InMemoryTaskStore(),
+    agent_card=agent_card,
+)
+
+app = FastAPI()
+add_a2a_routes_to_fastapi(
+    app,
+    agent_card_routes=create_agent_card_routes(agent_card),
+    jsonrpc_routes=create_jsonrpc_routes(handler, rpc_url="/"),
+    rest_routes=create_rest_routes(handler),
+)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Notice the <code>agent_card</code> gets passed twice: once into <code>DefaultRequestHandler</code> (which needs it to answer capability questions at request time) and once into <code>create_agent_card_routes</code> (which needs it to serve the actual JSON). Miss the first one and the handler constructor just throws a <code>TypeError</code> telling you what's missing, which, honestly, is a better failure mode than most REST frameworks give you.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Sending a Message, and the Header That'll Trip You Up</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Run that server and hit the REST endpoint with a normal message payload:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import httpx
+
+payload = {
+    "message": {
+        "message_id": "m-1",
+        "role": "ROLE_USER",
+        "parts": [{"text": "hello from the client"}],
+    }
+}
+resp = httpx.post("http://localhost:8000/v1/message:send", json=payload)
+print(resp.status_code, resp.json())</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The first time I ran this, I got a 400 back: <code>"A2A version '0.3' is not supported by this handler. Expected version '1.0'."</code> I hadn't sent a version at all. Turns out that's the spec working exactly as documented, not a bug: a request with no <code>A2A-Version</code> header is treated as version 0.3 by default, and a 1.0-only handler rejects it outright. The fix is one header:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>resp = httpx.post(
+    "http://localhost:8000/v1/message:send",
+    json=payload,
+    headers={"A2A-Version": "1.0"},
+)
+# 200 {'message': {'messageId': '...', 'role': 'ROLE_AGENT', 'parts': [{'text': 'echo: hello from the client'}]}}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Add the header and you get a 200 with the echoed reply, same shape as the <code>Message</code> type we built earlier. It's a small thing, but it's exactly the kind of small thing that costs you forty minutes if a tutorial's example client forgets to show it, which, from what I saw browsing a handful of them, more than a few do.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">A2A vs MCP vs Just Rolling Your Own REST API</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>People ask me whether they need A2A at all, given they could just expose a webhook and call it a day. Fair question. Here's the honest comparison:</p><!-- /wp:paragraph -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Dimension</th><th>A2A Protocol</th><th>MCP</th><th>Custom REST webhook</th></tr></thead><tbody><tr><td>Connects</td><td>Agent to agent, cross-vendor</td><td>Agent to tool/data source</td><td>Whatever you wire up</td></tr><tr><td>Discovery</td><td>Standard AgentCard at a well-known path</td><td>Server-declared tool/resource list</td><td>None, unless you build it</td></tr><tr><td>Task lifecycle</td><td>Built in (submitted, working, input-required, etc.)</td><td>N/A, request/response per call</td><td>You build and maintain this yourself</td></tr><tr><td>Cross-vendor interop</td><td>The entire point</td><td>Not the goal</td><td>Only if both sides agree on your format</td></tr><tr><td>Overhead for a 2-agent in-house setup</td><td>Real, probably not worth it</td><td>Low if you already need tools</td><td>Lowest, until a third agent shows up</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>My honest take: if every agent in your system is one you built, in one codebase, skip A2A. The <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">same infinite-loop and handoff headaches</a> you'd debug in a plain function call don't go away just because you wrapped them in a protocol, and you're paying real complexity for interoperability you don't need yet. Reach for A2A the moment "another agent" stops meaning "a function in my own repo" and starts meaning someone else's server, on someone else's release schedule, that you don't control.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of A2A</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Works across frameworks and vendors by design, instead of locking you into one ecosystem's internal handoff format</li>
+<li>Task lifecycle (input-required, auth-required, etc.) is part of the spec, not something you reinvent per project</li>
+<li>Three transport bindings (JSON-RPC, gRPC, REST) mean you're not stuck picking one shape for every client</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of A2A</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Real setup cost for something a plain function call would do in a single codebase</li>
+<li>The spec moved fast enough in 2026 that plenty of tutorials online are already out of date, including the official helloworld example in some older forks</li>
+<li>You're now running and securing an extra HTTP service, with its own auth, instead of an in-process call</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Importing <code>A2AStarletteApplication</code>.</strong> It doesn't exist in current <code>a2a-sdk</code> releases. Use <code>add_a2a_routes_to_fastapi</code> with <code>create_agent_card_routes</code>/<code>create_jsonrpc_routes</code>/<code>create_rest_routes</code> instead.</li>
+<li><strong>Sending a request with no <code>A2A-Version</code> header and getting a confusing 400.</strong> No header means version 0.3 by default; a 1.0-only handler will reject it. Set the header explicitly.</li>
+<li><strong>Putting a top-level <code>url</code> on the AgentCard.</strong> That field was removed in 1.0. Endpoints now live in <code>supported_interfaces</code>.</li>
+<li><strong>Forgetting <code>agent_card</code> is required by <code>DefaultRequestHandler</code>, not just by the card route.</strong> The handler uses it to answer capability and interface questions at request time.</li>
+<li><strong>Treating A2A as a replacement for MCP, or the other way around.</strong> They sit at different layers and solve different problems; most real systems that need both will run both.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Where A2A Isn't Enough</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A2A gives you a task lifecycle and a card format. It does not give you tracing across agent boundaries, retry policy when the other agent's server is just slow, or a way to know whether the agent you're calling is actually healthy before you send it work. You'll still want <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">real tracing across the whole multi-agent call chain</a>, because once a task crosses an HTTP boundary into someone else's infrastructure, "where did this fail" stops being a stack trace and starts being a support ticket. And the <code>input-required</code>/<code>auth-required</code> task states are hooks, not a finished human-approval system; you still need to build the actual <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">human-in-the-loop gate</a> that pauses a task and waits for a person to approve it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>It also doesn't settle the in-process question at all. Delegating to a subagent inside one framework is a genuinely different problem from delegating across a network to a stranger's server, and the two don't need the same tool. If you're choosing between Claude's subagent model and OpenAI's handoff-based one for work that stays inside your own system, that's <a href="https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/">a different comparison entirely</a>, one that has nothing to do with A2A.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>I'd reach for the A2A protocol the day a second company's agent needs to show up in my pipeline, and not a day before. Inside your own codebase, a function call will always be faster to debug than an HTTP round-trip with its own auth and version header. But the moment you're actually handing a task to something you don't control, having a standard AgentCard and task lifecycle beats everyone inventing their own webhook shape. If you're starting today, install <code>a2a-sdk</code> fresh, build the echo server above first, and confirm the version header behavior yourself before you touch anything more complex. It's the one gotcha that'll waste your afternoon instead of your morning.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What is the A2A protocol?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>A2A (Agent2Agent) is an open, vendor-neutral protocol that lets AI agents built on different frameworks discover each other's capabilities, hand off tasks, and exchange structured results over HTTP. It was open-sourced by Google and now lives under the Agentic AI Foundation alongside MCP.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is A2A the same as MCP?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. MCP standardizes how an agent connects to tools and data sources. A2A standardizes how one agent talks to another agent. They sit at different layers of the same stack, and a system can use both at once.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Why did my A2A request fail with a version error?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>A request sent without an <code>A2A-Version</code> header is treated as version 0.3 by default. If your server only supports 1.0, that request gets rejected with a "version not supported" error. Add the header explicitly: <code>A2A-Version: 1.0</code>.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What happened to A2AStarletteApplication?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>It was removed from current <code>a2a-sdk</code> releases. The server layer now builds on plain FastAPI, wired up with <code>add_a2a_routes_to_fastapi</code> plus separate route groups for the agent card, JSON-RPC, and REST endpoints.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need A2A for a simple multi-agent project?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Probably not, if every agent lives in your own codebase. A2A earns its complexity when you need to talk to an agent built and run by someone else, on infrastructure you don't control. For in-house agents, a direct function call or your framework's own handoff mechanism is simpler and easier to debug.</p><!-- /wp:paragraph -->
