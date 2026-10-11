@@ -1,0 +1,62 @@
+{
+  "title": "Durable Agent Workflows with Temporal: Surviving Crashes Without Checkpointing Hacks",
+  "slug": "durable-agent-workflows-temporal",
+  "excerpt": "A hand-rolled status column breaks the moment a worker dies mid-step. Here's how Temporal's Workflow/Activity split survives crashes and long human approvals without one.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Durable Agent Workflows",
+    "Temporal Python SDK",
+    "Durable Execution",
+    "OpenAI Agents SDK",
+    "LangGraph",
+    "Agent State Persistence",
+    "Retry Strategies",
+    "Workflow Automation",
+    "Resume AI Agent",
+    "AI Agent Reliability"
+  ],
+  "focus_keyword": "durable agent workflows with temporal",
+  "seo_title": "Durable Agent Workflows with Temporal: Crash Recovery",
+  "meta_description": "Durable agent workflows with Temporal survive crashes and long human approvals, no hand-rolled checkpoint table. Real Python code, retries, and pitfalls.",
+  "social_message": "I built a database table just to track which step my agent loop had reached. A worker crash duplicated a Slack message before I ripped it out.\n\nDurable agent workflows with Temporal fix this: Workflows replay from event history, Activities retry on their own, and crash recovery uses the same mechanism as waiting on a human approval. Real RetryPolicy code, the OpenAI Agents SDK plugin, and the determinism bug that bit me first.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/\n📌 On Instagram? Link in bio.\n\n#DurableAgentWorkflows #TemporalPythonSDK #DurableExecution #Python #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "durable-agent-workflows-temporal-featured.jpg",
+      "title": "Durable Agent Workflows with Temporal: Crash Recovery",
+      "alt": "Durable agent workflows with Temporal: a crashed worker and lost checkpoint versus automatic replay and resume.",
+      "caption": "",
+      "description": "A crashed worker loses its checkpoint on the left; on the right, Temporal's event history lets a Workflow replay and resume automatically on another worker."
+    },
+    {
+      "key": "inline-1",
+      "file": "durable-agent-workflows-temporal-workflow-activity.webp",
+      "title": "Temporal Workflow and Activity Split",
+      "alt": "A Temporal Workflow dispatching three retried Activities into a durable event history log.",
+      "caption": "A Workflow orchestrates; Activities do the risky side-effecting work and retry on their own.",
+      "description": "Diagram of a Temporal Workflow calling three Activities (a model call, a database write, an API request), each independently retried, with results recorded in a durable event history."
+    },
+    {
+      "key": "inline-2",
+      "file": "durable-agent-workflows-temporal-determinism.webp",
+      "title": "Temporal Workflow Determinism: Safe Replay-Safe Calls",
+      "alt": "Temporal workflow determinism: random() and datetime.now() replaced by replay-safe workflow.random() and workflow.now().",
+      "caption": "Direct random() and datetime.now() calls break replay; workflow.random() and workflow.now() don't.",
+      "description": "Illustration of Temporal's determinism rule: unsafe random() and datetime.now() calls inside Workflow code (left, crossed out) versus the replay-safe workflow.random() and workflow.now() equivalents (right)."
+    },
+    {
+      "key": "inline-3",
+      "file": "durable-agent-workflows-temporal-signal-resume.webp",
+      "title": "Crash Recovery and Human Approval, Same Mechanism",
+      "alt": "Crash recovery and human approval converging on the same paused Temporal Workflow through a Signal before resuming.",
+      "caption": "A crashed worker's recovery and a human's approval both resume the same waiting Workflow.",
+      "description": "A crashed worker reconnecting on a new machine and a human approval card both send a Signal into the same paused Temporal Workflow, which then resumes."
+    }
+  ]
+}

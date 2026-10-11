@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1674,
+      "date": "2026-10-11",
+      "title": "Durable Agent Workflows with Temporal: Surviving Crashes Without Checkpointing Hacks",
+      "slug": "durable-agent-workflows-temporal",
+      "link": "https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent State Persistence",
+        "AI Agent Reliability",
+        "Durable Agent Workflows",
+        "Durable Execution",
+        "LangGraph",
+        "OpenAI Agents SDK",
+        "Resume AI Agent",
+        "Retry Strategies",
+        "Temporal Python SDK",
+        "Workflow Automation"
+      ],
+      "excerpt": "A hand-rolled status column breaks the moment a worker dies mid-step. Here’s how Temporal’s Workflow/Activity split survives crashes and long human approvals without one."
+    },
+    {
       "id": 1668,
       "date": "2026-10-10",
       "title": "A2A Protocol Explained: How AI Agents Talk to Each Other",
@@ -1008,6 +1031,11 @@
       "name": "AI Automation"
     },
     {
+      "id": 451,
+      "count": 6,
+      "name": "LangGraph"
+    },
+    {
       "id": 453,
       "count": 6,
       "name": "Multi-Agent Systems"
@@ -1031,11 +1059,6 @@
       "id": 75,
       "count": 5,
       "name": "Generative AI"
-    },
-    {
-      "id": 451,
-      "count": 5,
-      "name": "LangGraph"
     },
     {
       "id": 74,
@@ -1143,6 +1166,11 @@
       "name": "Natural Language Processing"
     },
     {
+      "id": 168,
+      "count": 3,
+      "name": "Workflow Automation"
+    },
+    {
       "id": 468,
       "count": 2,
       "name": "Agent Architecture"
@@ -1151,6 +1179,11 @@
       "id": 489,
       "count": 2,
       "name": "agent orchestration"
+    },
+    {
+      "id": 533,
+      "count": 2,
+      "name": "Agent State Persistence"
     },
     {
       "id": 541,
@@ -1248,6 +1281,11 @@
       "name": "Digital Transformation"
     },
     {
+      "id": 535,
+      "count": 2,
+      "name": "Durable Execution"
+    },
+    {
       "id": 89,
       "count": 2,
       "name": "Emerging Technologies"
@@ -1278,6 +1316,11 @@
       "name": "Memory Scopes"
     },
     {
+      "id": 585,
+      "count": 2,
+      "name": "OpenAI Agents SDK"
+    },
+    {
       "id": 243,
       "count": 2,
       "name": "Prompt Engineering"
@@ -1288,19 +1331,24 @@
       "name": "RAG"
     },
     {
+      "id": 532,
+      "count": 2,
+      "name": "Resume AI Agent"
+    },
+    {
       "id": 375,
       "count": 2,
       "name": "Retrieval Augmented Generation"
     },
     {
+      "id": 463,
+      "count": 2,
+      "name": "Retry Strategies"
+    },
+    {
       "id": 171,
       "count": 2,
       "name": "Technology"
-    },
-    {
-      "id": 168,
-      "count": 2,
-      "name": "Workflow Automation"
     },
     {
       "id": 554,
@@ -1346,11 +1394,6 @@
       "id": 589,
       "count": 1,
       "name": "Agent Permissions"
-    },
-    {
-      "id": 533,
-      "count": 1,
-      "name": "Agent State Persistence"
     },
     {
       "id": 583,
@@ -1421,6 +1464,11 @@
       "id": 553,
       "count": 1,
       "name": "AI Agent Rate Limits"
+    },
+    {
+      "id": 599,
+      "count": 1,
+      "name": "AI Agent Reliability"
     },
     {
       "id": 329,
@@ -1948,9 +1996,9 @@
       "name": "Digital Workspace"
     },
     {
-      "id": 535,
+      "id": 597,
       "count": 1,
-      "name": "Durable Execution"
+      "name": "Durable Agent Workflows"
     },
     {
       "id": 390,
@@ -2513,11 +2561,6 @@
       "name": "Open Source AI"
     },
     {
-      "id": 585,
-      "count": 1,
-      "name": "OpenAI Agents SDK"
-    },
-    {
       "id": 560,
       "count": 1,
       "name": "OpenAI API"
@@ -2636,16 +2679,6 @@
       "id": 189,
       "count": 1,
       "name": "Responsive Design"
-    },
-    {
-      "id": 532,
-      "count": 1,
-      "name": "Resume AI Agent"
-    },
-    {
-      "id": 463,
-      "count": 1,
-      "name": "Retry Strategies"
     },
     {
       "id": 216,
@@ -2786,6 +2819,11 @@
       "id": 228,
       "count": 1,
       "name": "Technical SEO"
+    },
+    {
+      "id": 598,
+      "count": 1,
+      "name": "Temporal Python SDK"
     },
     {
       "id": 558,

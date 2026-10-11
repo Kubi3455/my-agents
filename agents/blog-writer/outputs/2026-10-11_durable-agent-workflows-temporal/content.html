@@ -1,0 +1,213 @@
+<!-- wp:paragraph --><p>Last month I shipped a "crash-safe" agent loop that was really just a Postgres table named <code>agent_progress</code> and a try/except wrapped around every tool call. It worked, for about two weeks. Then a worker got OOM-killed mid tool-call, the row never got marked done, and my retry logic re-ran a step that had already posted a message to a real Slack channel. Twice.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That's the exact gap durable agent workflows with Temporal are built to close. If you've ever hand-rolled a resume-after-crash mechanism yourself (a status column, a cron job that polls for stuck rows, a flag you set right before the risky step), you already know how this usually goes wrong. You end up building a small, worse version of a database and a scheduler inside your agent code, and every edge case you didn't plan for turns into a duplicate side effect at 3am.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Temporal was built for this years before anyone called it "agent orchestration." Here's what it actually buys you, how to wire a real agent loop through it without rewriting the loop, and exactly where its rules will bite you the first time you forget them.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why Checkpointing Hacks Fall Apart at the Edges</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>An agent loop isn't one risky operation, it's dozens. Every model call can hit a rate limit. Every tool call can time out. Every step can depend on a result that hasn't come back yet. I've written before about <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">a retry strategy for 429s</a> on a single call, but a checkpoint table has to get the <em>sequencing</em> right across all of them, not just back off on one.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The DIY version usually looks like this: a status column (<code>pending</code>, <code>running</code>, <code>done</code>), a flag set right before anything risky, and a sweeper job that looks for rows stuck in <code>running</code> past some timeout. It works until two things happen at once, which they will. A worker dies between "flag set" and "work finished," and your sweeper can't tell if the step actually ran or not. So it reruns it. If that step sent an email, charged a card, or posted to Slack, you now have a duplicate. I've also watched this pattern quietly turn into <a href="https://www.firstevolvenextscale.com/prevent-ai-agents-stuck-in-loops/">an agent stuck retrying a step that will never succeed</a>, because nobody wired in a real cap on attempts.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>None of this is a knock on anyone who's built one of these tables. I did too, more than once. The annoying part is that you're solving a generic problem, replaying history to figure out what already happened, with code that's specific to one agent. Temporal's pitch is to make that replay the runtime's job, not yours.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What "Durable Execution" Actually Means Here</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Temporal splits your code into two kinds of functions: <strong>Workflows</strong> and <strong>Activities</strong>. A Workflow is the orchestration logic: the sequence of steps, the branching, the "call the model, then call a tool, then decide what's next." An Activity is where the actual side-effecting work happens, the model call itself, a database write, an HTTP request to a third-party API.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the part that surprised me the first time I read the <a href="https://docs.temporal.io/develop/python/workflows/basics">Python SDK's Workflow docs</a>: Temporal doesn't keep your Workflow function running on one machine forever. It records every Activity call and result as an event in a durable history. If the worker running your Workflow crashes, a different worker picks it up, re-executes the Workflow function from the top, and replays each already-completed Activity call from history instead of actually calling it again. The side-effecting work isn't repeated. The orchestration logic just gets rebuilt to the exact point it was at.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That single design choice is why the "resume after crash" problem mostly disappears. Your agent doesn't get smarter about resuming. Resuming simply stops being something your agent code has to think about.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Durable Agent Workflows with Temporal: A Minimal Step in Python</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Before wiring in a full agent framework, it's worth seeing the raw shape. A Workflow class with one entry point, an Activity function it calls, and a retry policy that controls what happens when that Activity fails:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from datetime import timedelta
+
+from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
+
+
+@activity.defn
+async def call_model(prompt: str) -> str:
+    # the actual LLM call lives here — this is the part that can fail,
+    # get rate-limited, or time out, and Temporal retries just this piece
+    return await run_llm_request(prompt)
+
+
+@workflow.defn
+class AgentStepWorkflow:
+    @workflow.run
+    async def run(self, prompt: str) -> str:
+        policy = RetryPolicy(
+            initial_interval=timedelta(seconds=2),
+            backoff_coefficient=2.0,
+            maximum_interval=timedelta(minutes=1),
+            maximum_attempts=5,
+            non_retryable_error_types=["InvalidPromptError"],
+        )
+        return await workflow.execute_activity(
+            call_model,
+            prompt,
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=policy,
+        )</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The <a href="https://docs.temporal.io/develop/python/failure-detection"><code>RetryPolicy</code></a> is the piece people skip and then regret. <code>initial_interval</code> and <code>backoff_coefficient</code> control how fast retries back off (2 seconds, then 4, then 8, by default doubling). <code>maximum_attempts</code> caps it so a permanently broken call doesn't retry forever. <code>non_retryable_error_types</code> is the one I'd actually call mandatory: without it, a validation error on bad input gets retried exactly as hard as a flaky network timeout, which is how you end up burning five attempts on a request that was never going to succeed.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Running this requires a Worker process that actually polls for work:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from temporalio.client import Client
+from temporalio.worker import Worker
+
+
+async def main():
+    client = await Client.connect("localhost:7233")
+    worker = Worker(
+        client,
+        task_queue="agent-task-queue",
+        workflows=[AgentStepWorkflow],
+        activities=[call_model],
+    )
+    await worker.run()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Nothing in either snippet is agent-specific yet, and that's the point. Temporal doesn't know or care that <code>call_model</code> happens to be an LLM call instead of a payment charge. It just knows it's an Activity with a retry policy and a timeout.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Determinism Trap (Where This Bites You)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Replay only works if re-running your Workflow function produces the exact same sequence of calls every time. That means Workflow code has a rule most application code doesn't: no non-deterministic operations inline. No <code>random.random()</code>, no <code>datetime.now()</code>, no direct network calls, no reading a file.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>You don't lose access to randomness or the clock, you just get replay-safe versions. <code>workflow.random()</code> hands you a seeded <code>random.Random</code> instance that produces the same sequence on replay. <code>workflow.now()</code> replaces <code>datetime.now()</code>. <code>workflow.uuid4()</code> replaces <code>uuid.uuid4()</code> for the same reason: a UUID generated fresh on replay wouldn't match the one from the first run, and the Workflow would be non-deterministic without ever touching the network.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the part I got wrong the first time: it's tempting to think "the model call is the risky part, I'll put that in an Activity and leave the rest in the Workflow." True as far as it goes, but any helper function the Workflow calls inline inherits the same constraint. I had a "pick a random few-shot example" helper that called <code>random.choice()</code> directly, buried two functions deep, and it ran fine until a worker restarted mid-run and the replay picked a <em>different</em> few-shot example than the first pass had. Same input, different output, and Temporal's replay check flagged it as non-determinism. The fix was moving that one line to <code>workflow.random().choice(...)</code>, not rewriting the agent.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Wiring In a Real Agent Loop: the OpenAI Agents SDK Integration</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Writing every Activity and RetryPolicy by hand is fine for one model call. It gets tedious fast for a full agent loop with tool calls, handoffs, and streaming. Temporal and OpenAI shipped a <a href="https://docs.temporal.io/develop/python/integrations/openai-agents">public-preview integration</a> for exactly this, and as of the Python SDK's 1.0 release of the integration it lives at <code>temporalio.openai_agents</code> (it used to sit under <code>temporalio.contrib.openai_agents</code>, so don't be surprised if an older tutorial still imports from there). One thing that isn't obvious from the import path: it's a separate package. <code>pip install temporalio</code> alone won't give you that module; you also need <code>pip install temporalio-openai-agents</code>, which I only noticed because the import failed cleanly in a fresh virtualenv.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The thing I like about it: you write ordinary OpenAI Agents SDK code inside the Workflow. No Temporal-specific agent runner.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from datetime import timedelta
+
+from agents import Agent, Runner
+from temporalio import workflow
+from temporalio.client import Client
+from temporalio.openai_agents import ModelActivityParameters, OpenAIAgentsPlugin
+from temporalio.worker import Worker
+
+
+@workflow.defn
+class SupportAgentWorkflow:
+    @workflow.run
+    async def run(self, prompt: str) -> str:
+        agent = Agent(
+            name="Support Agent",
+            instructions="Answer billing questions. Be concise.",
+        )
+        result = await Runner.run(agent, input=prompt)
+        return result.final_output
+
+
+async def main():
+    client = await Client.connect(
+        "localhost:7233",
+        plugins=[
+            OpenAIAgentsPlugin(
+                model_params=ModelActivityParameters(
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+            ),
+        ],
+    )
+
+    worker = Worker(
+        client,
+        task_queue="support-agent-task-queue",
+        workflows=[SupportAgentWorkflow],
+    )
+    await worker.run()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The plugin redirects <code>Runner.run</code> under the hood, so every model call automatically becomes a Temporal Activity with its own retry policy, instead of a plain HTTP call sitting inline in the Workflow. That's the whole trick: your agent loop keeps the shape you already know from the OpenAI Agents SDK, and the crash-safety arrives as a side effect of which plugin the Client was built with.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Tool placement still matters. A tool wrapped with <code>activity_as_tool</code> runs as its own Activity. Use this for anything that does I/O, and remember to register the underlying function in the Worker's <code>activities</code> list too. A tool defined with <code>@function_tool</code> runs inside the Workflow itself, which is fine for pure, deterministic logic and a mistake for anything that touches the network.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you're running the <a href="https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/">Claude Agent SDK instead of OpenAI's</a>: last I checked, there's no equivalent drop-in plugin. You wire your own Activities by hand, the same shape as the minimal example earlier in this piece. More typing, same underlying guarantees.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Crash Recovery and Human-in-the-Loop Use the Same Mechanism</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>This is the part that took me longest to appreciate: a Workflow waiting on a crashed worker to be replaced, and a Workflow waiting on a human to click "approve," look identical from Temporal's point of view. Both are just a Workflow that hasn't finished yet, sitting in history, waiting for its next input.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Temporal's Python SDK gives you <a href="https://docs.temporal.io/develop/python/message-passing">two ways to feed input into a running Workflow</a>: Signals and Updates. A <code>@workflow.signal</code> handler mutates state and doesn't return anything: fire-and-forget, good for "approved" or "cancel this." A <code>@workflow.update</code> handler can mutate state <em>and</em> return a value to whoever sent it, which is what you want for "here's the human's edited answer, now keep going with it."</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>@workflow.defn
+class ApprovalAgentWorkflow:
+    def __init__(self) -> None:
+        self.approved = False
+
+    @workflow.signal
+    def approve(self) -> None:
+        self.approved = True
+
+    @workflow.run
+    async def run(self, draft: str) -> str:
+        await workflow.wait_condition(lambda: self.approved)
+        return draft</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>A client calls <code>workflow_handle.signal(ApprovalAgentWorkflow.approve)</code> whenever the human gets around to it. Ten seconds later or ten hours later, it doesn't matter, because the Workflow's state (including everything before the wait) is sitting durably in history either way. I touched on the design tension here in <a href="https://www.firstevolvenextscale.com/human-in-the-loop-for-ai-workflows/">keeping a human in the loop without losing automation speed</a>; Temporal's angle on it is that the "waiting for a person" state and the "recovering from a crash" state are the same primitive, so you don't build separate machinery for each.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Temporal vs. Rolling Your Own Checkpoint Table</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Concern</th><th>DIY status-column table</th><th>LangGraph checkpointer</th><th>Temporal Workflow</th></tr></thead><tbody><tr><td>Crash recovery</td><td>Manual sweeper job, racy</td><td>Resumes from last saved graph state</td><td>Automatic replay from event history</td></tr><tr><td>Duplicate side effects on retry</td><td>Your problem to prevent</td><td>Your problem, scoped to node idempotency</td><td>Activities only re-run if not yet completed</td></tr><tr><td>Waiting hours or days for a human</td><td>Needs its own polling/cron logic</td><td>Needs an external trigger to resume</td><td>Same Signal/Update mechanism as crash recovery</td></tr><tr><td>Runs across multiple machines</td><td>You build the coordination</td><td>Tied to wherever the process runs</td><td>Built in — any worker can pick up any Workflow</td></tr><tr><td>Operational cost</td><td>Low to start, grows messy</td><td>Low, in-process</td><td>A Temporal server/cluster to run and monitor</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>I've written separately about <a href="https://www.firstevolvenextscale.com/langgraph-checkpointing/">resuming a LangGraph agent after a crash with its own checkpointer</a>, and I'll say the quiet thing out loud: for a single-process agent that fails over on the same machine, LangGraph's checkpointer is simpler to run and genuinely enough. Reach for Temporal when the failure modes get bigger than that: workers that can die and get replaced on a different machine entirely, approvals that might take days, or a fleet of agents where you need one system tracking all of them instead of N separate checkpoint tables.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons of Temporal for Agent Workflows</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Temporal</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list"><li>Crash recovery and human-in-the-loop waiting share one mechanism, so you don't build two systems</li><li>Retries are scoped to the Activity that failed, not the whole run from the top</li><li>Official integration with the OpenAI Agents SDK means you keep writing normal agent code</li><li>Any worker can pick up any Workflow, so a dead machine doesn't strand a run</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Temporal</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list"><li>You're now running (or paying for) a Temporal server, which is a real piece of infrastructure, not a library import</li><li>The determinism rules are a genuine learning curve: they'll pass code review and still break on the first replay</li><li>Debugging means reading event history, which is a different skill than reading a stack trace</li><li>Overkill for a short-lived script that runs once and exits in a CI job</li></ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><strong>Determinism violations that only show up later.</strong> A workflow that calls <code>random.random()</code> or <code>datetime.now()</code> directly will run fine the first time, every time, because there's no replay to fail yet. The error shows up weeks later, the first time a worker actually restarts mid-run. Catch it in review, not in production: grep Workflow files for <code>random.</code>, <code>datetime.now</code>, and raw <code>requests.</code>/<code>httpx.</code> calls before they ship.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Treating Activities as idempotent when they aren't.</strong> Temporal won't re-run a completed Activity on replay, but it absolutely will re-run one that failed partway through on the <em>first</em> attempt, before it's recorded as complete. If your Activity sends an email and then the process dies before Temporal records success, the retry sends it again. Design Activities so running them twice is harmless: an idempotency key on the outbound request, a check-before-write, the same discipline you'd want for any at-least-once delivery system.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Letting event history grow forever on a long-running loop.</strong> An agent that loops for thousands of iterations in a single Workflow run keeps accumulating history, and Temporal has limits on how big that gets. The fix isn't "don't loop," it's Continue-As-New: the Workflow finishes its current execution and starts a fresh one with a trimmed-down state, same Workflow ID, invisible to anything polling for the result.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><strong>Skipping <code>non_retryable_error_types</code> and retrying unrecoverable errors anyway.</strong> I covered this one in the RetryPolicy section above, but it's worth repeating because it's the pitfall I see most: a malformed-input error and a rate-limit error get retried identically by default, which is exactly the kind of runaway loop I've <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">spent too many hours debugging in multi-agent systems</a> that weren't even using Temporal. Classify your exceptions on purpose.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>I'd stop hand-rolling a status column the moment an agent loop needs to survive a worker restart on a different machine, or wait more than a few minutes for a human. Below that bar, keep it simple. A LangGraph checkpointer or a plain retry loop is less infrastructure to run. Above it, durable agent workflows with Temporal are worth the learning curve, mostly because crash recovery and human approval stop being two separate problems you solve twice.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you're starting from an existing OpenAI Agents SDK loop, the plugin is genuinely a weekend project, not a rewrite. Start there, get one Workflow running end to end on your own machine, and only then start worrying about Continue-As-New and versioning. Those matter, but they're not where you'll get stuck first.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does Temporal replace LangGraph or CrewAI?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. Temporal doesn't know what an "agent" is; it orchestrates Workflows and Activities. LangGraph and CrewAI are agent frameworks; Temporal is a durable execution layer you can run underneath one. The OpenAI Agents SDK integration shows the pattern: the agent framework still decides what the agent does, Temporal just makes the calls durable.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need a Temporal Cloud account, or can I self-host?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Both exist. You can run the open-source Temporal server yourself for development and production, or use Temporal Cloud if you'd rather not operate the cluster. Either way, your Workflow and Activity code is identical; only the <code>Client.connect</code> target and credentials change.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What happens if my Workflow code changes while a run is in progress?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Changing the order or type of calls in a Workflow that has runs already in flight causes a non-determinism error on replay, because the new code won't produce the same event sequence the old run already recorded. Temporal's answer is workflow versioning (patching): you branch on a version marker so old runs keep replaying the old code path and new runs take the new one.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can Activities run in parallel inside one Workflow?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes. <code>workflow.execute_activity</code> returns a coroutine, so you can fire several and gather them with <code>asyncio.gather</code>, the same as any other async Python code. The determinism rule still applies: the gather itself has to behave the same way on replay, which it will as long as you're not racing it against something non-deterministic.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is this overkill for a side project?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Probably. Running a Temporal server for a weekend script that calls an LLM twice and exits is more operational surface than the problem deserves. This is a tool for an agent that needs to survive real infrastructure failures or wait on humans for a while, not for a quick experiment.</p><!-- /wp:paragraph -->
