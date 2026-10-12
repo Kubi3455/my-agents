@@ -1,0 +1,51 @@
+{
+  "title": "CrewAI Flows vs LangGraph Graphs: Picking the Right Control Flow",
+  "slug": "crewai-flows-vs-langgraph-graphs",
+  "excerpt": "A router typo in a CrewAI Flow can silently skip a step with zero error. Real code shows how that compares to LangGraph, and which one to reach for.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": ["CrewAI Flows", "LangGraph Graphs", "Agent Control Flow", "Deterministic AI Agents", "StateGraph", "CrewAI", "LangGraph", "Python", "Multi-Agent Systems", "Agent Routing"],
+  "focus_keyword": "crewai flows vs langgraph graphs",
+  "seo_title": "CrewAI Flows vs LangGraph Graphs: Control Flow Guide",
+  "meta_description": "CrewAI Flows vs LangGraph Graphs compared for deterministic agent routing, with real code, a router typo gotcha, and where each one breaks in production.",
+  "social_message": "A router typo in a CrewAI Flow once cost me 20 minutes. No exception, no traceback — one branch just quietly never ran.\n\nCrewAI Flows vs LangGraph Graphs: real code for both, the exact moment each one's \"deterministic\" routing stops being deterministic, and which one I'd actually reach for.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/crewai-flows-vs-langgraph-graphs/\n📌 On Instagram? Link in bio.\n\n#CrewAIFlows #LangGraphGraphs #AgentControlFlow #Python #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "crewai-flows-vs-langgraph-graphs-featured.jpg",
+      "title": "CrewAI Flows vs LangGraph Graphs: deterministic routing compared",
+      "alt": "Split-screen diagram comparing CrewAI Flows vs LangGraph Graphs routing, showing a silently broken path on the CrewAI side and a validated path on the LangGraph side.",
+      "caption": "",
+      "description": "Side-by-side comparison of how CrewAI Flows and LangGraph Graphs handle a routing decision: one path silently fails to connect, the other is checked and validated."
+    },
+    {
+      "key": "inline-1",
+      "file": "crewai-flows-vs-langgraph-graphs-wiring-styles.webp",
+      "title": "Event chain vs explicit graph wiring styles for agent control flow",
+      "alt": "Diagram contrasting an event-driven chain of connected steps with an explicit multi-node graph, illustrating two ways to wire deterministic agent control flow.",
+      "caption": "CrewAI's decorator chain versus LangGraph's explicit node-and-edge graph.",
+      "description": "Illustrates the structural difference between CrewAI's event-driven Flow decorators and LangGraph's explicit StateGraph wiring."
+    },
+    {
+      "key": "inline-2",
+      "file": "crewai-flows-vs-langgraph-graphs-route-check.webp",
+      "title": "LangGraph route verification with path_map before execution",
+      "alt": "Diagram of a LangGraph routing decision labeled route, with billing and technical destinations each checked before a BUILD OK stamp confirms the wiring.",
+      "caption": "LangGraph's path_map ties every route value to a real node name.",
+      "description": "Shows how LangGraph's add_conditional_edges path_map maps router outputs to destination nodes, the mechanism that catches an unmapped route."
+    },
+    {
+      "key": "inline-3",
+      "file": "crewai-flows-vs-langgraph-graphs-crash-resume.webp",
+      "title": "Crash and resume in a persisted agent control flow",
+      "alt": "Diagram of a four-step pipeline interrupted by a crash icon, with a database snapshot enabling the pipeline to resume from where it stopped.",
+      "caption": "Both frameworks checkpoint state so a crashed run can resume.",
+      "description": "Depicts how persistence (CrewAI's @persist decorator or a LangGraph checkpointer) lets a deterministic control flow resume after a crash mid-run."
+    }
+  ]
+}
