@@ -1,0 +1,51 @@
+{
+  "title": "Parallel Tool Calling in LLM Agents: When It Helps and When It Breaks",
+  "slug": "parallel-tool-calling-llm-agents",
+  "excerpt": "A model that calls two tools at once isn't dangerous by itself. It's the shared state those calls both touch that breaks quietly, with no error anywhere in sight.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": ["Parallel Tool Calling", "LLM Agents", "Race Conditions", "Tool Calling", "Idempotent Retries", "Shared State", "Claude API", "OpenAI API", "Python", "AI Agent Reliability"],
+  "focus_keyword": "parallel tool calling in llm agents",
+  "seo_title": "Parallel Tool Calling in LLM Agents: Risks & Fixes",
+  "meta_description": "Parallel tool calling in LLM agents speeds up Claude and OpenAI tool use, but shared writes can race. Real code shows the bug and the exact fix.",
+  "social_message": "A parallel tool call once double-booked the same inventory SKU. No crash. No exception.\n\nParallel tool calling in LLM agents compared across Claude and OpenAI: the exact race condition, real code reproducing it, and the lock + idempotency key fix that keeps the speed without the corruption.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/\n📌 On Instagram? Link in bio.\n\n#ParallelToolCalling #LLMAgents #RaceConditions #Python #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 12,
+    "human_voice_test": 8,
+    "images_reviewed": true
+  },
+  "images": [
+    {
+      "key": "featured",
+      "file": "parallel-tool-calling-llm-agents-featured.jpg",
+      "title": "Parallel tool calling in LLM agents: race condition on shared state",
+      "alt": "Diagram of parallel tool calling in LLM agents: two tool calls colliding on the same database, triggering a lost update.",
+      "caption": "",
+      "description": "Shows how parallel tool calling in LLM agents can let two tool calls from the same model turn write over each other, causing a lost update with no error raised."
+    },
+    {
+      "key": "inline-1",
+      "file": "parallel-tool-calling-llm-agents-fanout.webp",
+      "title": "One model turn fanning out into independent parallel tool calls",
+      "alt": "Diagram of one model response fanning out into three independent parallel tool calls, each hitting its own server.",
+      "caption": "A single model turn can return several independent tool calls at once.",
+      "description": "Illustrates how one assistant turn in parallel tool calling can contain multiple independent tool_use or tool_calls entries, each targeting its own tool."
+    },
+    {
+      "key": "inline-2",
+      "file": "parallel-tool-calling-llm-agents-race-condition.webp",
+      "title": "Read-modify-write race condition in parallel tool calls",
+      "alt": "Diagram of two parallel tool calls reading the same stock value before writing back, causing a lost update.",
+      "caption": "Two parallel tool calls reading the same value before either writes back.",
+      "description": "Depicts the read-modify-write race condition from parallel tool calling in LLM agents: both calls read the same starting value, so one write overwrites the other."
+    },
+    {
+      "key": "inline-3",
+      "file": "parallel-tool-calling-llm-agents-retry.webp",
+      "title": "Handling a failed dependent tool call with a retry loop",
+      "alt": "Diagram of a failed first tool call marking a dependent second call as not executed, looping back to the model for a retry.",
+      "caption": "A failed call in a dependent batch should be marked, not silently dropped.",
+      "description": "Shows the documented pattern for a dependent tool call batch: mark the skipped call as not executed and let the model reissue it on the next turn."
+    }
+  ]
+}

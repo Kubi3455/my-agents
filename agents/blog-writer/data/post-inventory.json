@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1680,
+      "date": "2026-10-12",
+      "title": "CrewAI Flows vs LangGraph Graphs: Picking the Right Control Flow",
+      "slug": "crewai-flows-vs-langgraph-graphs",
+      "link": "https://www.firstevolvenextscale.com/crewai-flows-vs-langgraph-graphs/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "Agent Control Flow",
+        "Agent Routing",
+        "CrewAI",
+        "CrewAI Flows",
+        "Deterministic AI Agents",
+        "LangGraph",
+        "LangGraph Graphs",
+        "Multi-Agent Systems",
+        "Python",
+        "StateGraph"
+      ],
+      "excerpt": "A router typo in a CrewAI Flow can silently skip a step with zero error. Real code shows how that compares to LangGraph, and which one to reach for."
+    },
+    {
       "id": 1674,
       "date": "2026-10-11",
       "title": "Durable Agent Workflows with Temporal: Surviving Crashes Without Checkpointing Hacks",
@@ -1021,6 +1044,21 @@
       "name": "Artificial Intelligence"
     },
     {
+      "id": 451,
+      "count": 7,
+      "name": "LangGraph"
+    },
+    {
+      "id": 453,
+      "count": 7,
+      "name": "Multi-Agent Systems"
+    },
+    {
+      "id": 112,
+      "count": 7,
+      "name": "Python"
+    },
+    {
       "id": 525,
       "count": 6,
       "name": "AI agent debugging"
@@ -1029,21 +1067,6 @@
       "id": 83,
       "count": 6,
       "name": "AI Automation"
-    },
-    {
-      "id": 451,
-      "count": 6,
-      "name": "LangGraph"
-    },
-    {
-      "id": 453,
-      "count": 6,
-      "name": "Multi-Agent Systems"
-    },
-    {
-      "id": 112,
-      "count": 6,
-      "name": "Python"
     },
     {
       "id": 461,
@@ -1086,6 +1109,11 @@
       "name": "AI Tools"
     },
     {
+      "id": 450,
+      "count": 4,
+      "name": "CrewAI"
+    },
+    {
       "id": 438,
       "count": 4,
       "name": "Local LLM"
@@ -1124,11 +1152,6 @@
       "id": 92,
       "count": 3,
       "name": "ChatGPT"
-    },
-    {
-      "id": 450,
-      "count": 3,
-      "name": "CrewAI"
     },
     {
       "id": 477,
@@ -1366,6 +1389,11 @@
       "name": "Accessibility Design"
     },
     {
+      "id": 602,
+      "count": 1,
+      "name": "Agent Control Flow"
+    },
+    {
       "id": 579,
       "count": 1,
       "name": "Agent Control Flow Patterns"
@@ -1394,6 +1422,11 @@
       "id": 589,
       "count": 1,
       "name": "Agent Permissions"
+    },
+    {
+      "id": 605,
+      "count": 1,
+      "name": "Agent Routing"
     },
     {
       "id": 583,
@@ -1931,6 +1964,11 @@
       "name": "CrewAI agents"
     },
     {
+      "id": 600,
+      "count": 1,
+      "name": "CrewAI Flows"
+    },
+    {
       "id": 483,
       "count": 1,
       "name": "CrewAI infinite loop"
@@ -1979,6 +2017,11 @@
       "id": 206,
       "count": 1,
       "name": "Design Inspiration"
+    },
+    {
+      "id": 603,
+      "count": 1,
+      "name": "Deterministic AI Agents"
     },
     {
       "id": 120,
@@ -2304,6 +2347,11 @@
       "id": 531,
       "count": 1,
       "name": "LangGraph Checkpointing"
+    },
+    {
+      "id": 601,
+      "count": 1,
+      "name": "LangGraph Graphs"
     },
     {
       "id": 484,
@@ -2779,6 +2827,11 @@
       "id": 490,
       "count": 1,
       "name": "state management in LangGraph"
+    },
+    {
+      "id": 604,
+      "count": 1,
+      "name": "StateGraph"
     },
     {
       "id": 495,

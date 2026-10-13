@@ -1,0 +1,234 @@
+<!-- wp:paragraph --><p>A few weeks back I watched an agent "successfully" oversell a limited-stock item by double-booking the same SKU. Nothing crashed. No exception anywhere in the logs. The culprit was parallel tool calling: the model returned two tool calls in the same turn, both reserving stock for the same item, and both read the current count before either one wrote the new value back. Classic lost update. The agent reported success twice, the inventory system believed it, and the actual number was wrong by exactly as much as the second call thought it was adding.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've wired up tool calling with Claude or OpenAI's API and noticed the model happily returning two or three tool calls in a single response, you've already met parallel tool calling. You don't opt into it. It ships on by default, and it's genuinely useful: fetching weather for three cities at once instead of three round trips is an easy win. The same batching shows up if you're running <a href="https://www.firstevolvenextscale.com/ollama-tool-calling-agents/">tool calling against a local model through Ollama</a>, you're just the one deciding how to execute the batch instead of a hosted provider's SDK doing it for you. The problem shows up the moment one of those tools writes something.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's how parallel tool calling in LLM agents actually works on both major APIs, the exact mechanism that turns it into a race condition, and the two changes that fix it without giving up the speed.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What "Parallel" Actually Means Here</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>"Parallel tool calling" doesn't mean the model is running code concurrently. It means the model's <em>response</em> contains more than one tool call, and what you do with that response is entirely up to you. Claude's response carries a <code>stop_reason</code> of <code>tool_use</code> and can include several <code>tool_use</code> content blocks in that single assistant turn. OpenAI's Chat Completions response puts multiple entries in the message's <code>tool_calls</code> array. Either way, you get a batch, not a single instruction.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>What happens next is your code's decision, and this is the detail that trips people up: neither API tells you what order to run the calls in, or whether to run them concurrently at all. Per Anthropic's own docs, "the API doesn't prescribe an execution order: you can run the calls concurrently (<code>Promise.all</code>, <code>asyncio.gather</code>), sequentially in the order they appear, or in any combination that suits your tools." You could run a five-call batch one at a time and it would still count as a response to "parallel" tool calling. The model asked for five things at once; whether your code treats that as a to-do list or a concurrent batch is a choice nobody made for you.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd read "parallel tool calling" as "the model can ask for several independent things in one turn," not "the runtime will execute them concurrently." Most frameworks do run them concurrently for the latency win, which is exactly why the failure mode below is so easy to hit without writing a single line of concurrency code yourself. It's a different layer than deciding <a href="https://www.firstevolvenextscale.com/agent-control-flow-patterns/">whether your loop reasons one step at a time or plans several steps up front</a>; a parallel batch can show up inside either pattern.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Turning It On, Off, and Checking What You Got</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Both providers ship parallel tool calling on by default, and both give you a way to force a single call. I ran this against a live OpenAI model to see it directly instead of taking the docs' word for it:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}]
+
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Check the weather in Paris and in Tokyo."}],
+    tools=tools,
+)
+calls = resp.choices[0].message.tool_calls or []
+print(len(calls))  # 2, one call per city, in my run
+
+resp_forced = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Check the weather in Paris and in Tokyo."}],
+    tools=tools,
+    parallel_tool_calls=False,
+)
+calls_forced = resp_forced.choices[0].message.tool_calls or []
+print(len(calls_forced))  # 1, every time I tried it
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Default behavior: 2 tool calls, one per city. With <code>parallel_tool_calls=False</code>: exactly 1. That matches OpenAI's own description of the flag: it "ensures exactly zero or one tool is called." Zero is still on the table; the model can decide not to call anything at all and just answer in text.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Claude's version of the same switch lives in a different place: a field on <code>tool_choice</code>, rather than a top-level request parameter. Set <code>disable_parallel_tool_use: true</code> inside the <code>tool_choice</code> object, and the effect depends on the <code>tool_choice</code> type you're using. With <code>auto</code> (the default), it caps Claude at one tool call, but Claude can still answer in plain text with zero. With <code>any</code> or <code>tool</code> (forced tool use), it caps Claude at exactly one call, full stop:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    tools=[{
+        "name": "get_weather",
+        "description": "Get the current weather in a given location",
+        "input_schema": {
+            "type": "object",
+            "properties": {"location": {"type": "string"}},
+            "required": ["location"],
+        },
+    }],
+    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+    messages=[{"role": "user", "content": "What is the weather in San Francisco and New York?"}],
+)
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I checked that field name against the installed <code>anthropic</code> Python SDK's own type definitions rather than trust the docs blindly, and <code>disable_parallel_tool_use</code> is exactly what <code>ToolChoiceAutoParam</code> and <code>ToolChoiceAnyParam</code> both expose. One more wrinkle: a batch of GPT-5-class function calls can't mix in a built-in tool (web search, code interpreter, that family) and still run in parallel; built-in tools are excluded from a parallel batch on those models. If you've compared <a href="https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/">Claude Agent SDK and OpenAI Agents SDK</a> at the framework layer, this auto-vs-forced split is the same idea, one level down at the raw API.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Where It Quietly Breaks: Shared State</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Read-only tools are close to risk-free in parallel. Ask for weather in three cities, search two documentation sites, look up a stock price and a timezone at once: nobody's data changes, so order and concurrency don't matter. The trouble starts the instant a tool call is a write, and two of them touch the same piece of state.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the exact bug from my opening story, reduced to something you can run yourself. Two "tool calls" both reserve stock for the same SKU, each one reading the current count, pausing (standing in for a real network round trip to a database), then writing the new value:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import threading, time
+
+inventory = {"sku_123": 10}
+
+def reserve_stock(sku: str, qty: int) -> str:
+    current = inventory[sku]
+    time.sleep(0.05)  # stand-in for a DB round trip
+    inventory[sku] = current - qty
+    return f"reserved {qty} of {sku}, now {inventory[sku]} left"
+
+results = [None, None]
+
+def worker(i, qty):
+    results[i] = reserve_stock("sku_123", qty)
+
+t1 = threading.Thread(target=worker, args=(0, 3))
+t2 = threading.Thread(target=worker, args=(1, 4))
+t1.start(); t2.start()
+t1.join(); t2.join()
+
+print(results[0])
+print(results[1])
+print("final inventory:", inventory["sku_123"])  # expected 10 - 3 - 4 = 3
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this. Expected final inventory: 3. Actual final inventory: 6. Both calls read 10 before either one wrote anything back, so the second write stomped on the first instead of stacking on top of it. The agent's own output looked completely fine: "reserved 3, now 7 left" and "reserved 4, now 6 left," two confident, individually correct-sounding messages, with no indication anywhere that they'd clobbered each other. This is the "wrong results without errors" pattern that makes shared-state races in parallel tool calls so much worse than a crash: there's nothing to catch, because nothing raises.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:paragraph --><p>Here's the confusing part: this exact code runs correctly if the model happens to call the tool sequentially, or if your executor runs the batch one at a time. The bug only shows up when both calls overlap between read and write. It's the same family of "worked every time I tested it, then didn't in production" problem I've run into <a href="https://www.firstevolvenextscale.com/debugging-multi-agent-workflows/">debugging multi-agent workflows that stalled instead of erroring out</a>, and it won't show up in a slow manual test either.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Fix: Serialize Writes, Add Idempotency Keys</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>You don't need to give up concurrency to fix this. You need two things: a lock around the actual mutation, and an idempotency key so a retried or duplicated call doesn't apply twice. Here's the same reservation logic with both added:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import threading, time
+
+inventory = {"sku_123": 10}
+lock = threading.Lock()
+seen_requests = set()
+
+def reserve_stock(sku: str, qty: int, request_id: str) -> str:
+    with lock:
+        if request_id in seen_requests:
+            return f"skipped duplicate request {request_id}"
+        current = inventory[sku]
+        time.sleep(0.05)
+        inventory[sku] = current - qty
+        seen_requests.add(request_id)
+        return f"reserved {qty} of {sku}, now {inventory[sku]} left"
+
+results = [None, None]
+
+def worker(i, qty, request_id):
+    results[i] = reserve_stock("sku_123", qty, request_id)
+
+t1 = threading.Thread(target=worker, args=(0, 3, "req-1"))
+t2 = threading.Thread(target=worker, args=(1, 4, "req-2"))
+t1.start(); t2.start()
+t1.join(); t2.join()
+
+print(results[0])
+print(results[1])
+print("final inventory:", inventory["sku_123"])  # 3, correct this time
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this version too: final inventory comes out to 3, every time, because the lock turns the read-modify-write into one uninterruptible step instead of two overlapping ones. The <code>request_id</code> check is the second half of the fix, and it matters even when the lock is in place: if the agent retries a tool call after a timeout, or the model happens to emit two calls that really do mean the same operation, you want the second one to no-op, not to reserve stock twice for something that already succeeded.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Where does the <code>request_id</code> actually come from? Claude gives you one for free: every <code>tool_use</code> block has an <code>id</code> field, and you're required to echo it back in the matching <code>tool_result</code> anyway. Reuse it as your idempotency key instead of inventing a separate one. OpenAI's <code>tool_calls</code> entries carry an equivalent per-call ID. Neither ID is guaranteed stable across a full retry from scratch, so for anything that really can't double-fire (an actual payment, not a demo), I'd generate and store your own idempotency key at the point you decide to act, not borrow the model's call ID as the only safety net. For a durable, multi-step operation rather than a single write, that's the problem <a href="https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/">durable workflow engines like Temporal are built to solve</a>, not something a dict and a lock cover long-term.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The honest trade-off: locking a shared resource removes the concurrency benefit for calls that hit that resource. That's fine. You're not trying to parallelize the write, you're trying to parallelize the parts that are actually independent. Classify each tool as read-only or write before you decide how to execute a batch, run the read-only ones concurrently without a second thought, and serialize anything that writes to state another call in the same batch might also touch.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Handling a Dependent Call That Fails</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Sometimes a batch isn't actually independent, even though the model treated it that way: one call needs the output of another. If you run the batch sequentially and an earlier call fails, Anthropic's documented pattern is to still return a <code>tool_result</code> for every call you skipped, marked <code>is_error: true</code>, rather than leaving it out:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>{
+  "type": "tool_result",
+  "tool_use_id": "toolu_02",
+  "is_error": true,
+  "content": "Not executed: the preceding write_file call failed."
+}
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Claude will reissue the skipped call on the next turn once it understands why it didn't run. The same idea applies running the pair concurrently: if the dependent call fails because its input wasn't ready, return the error rather than silently dropping the result. If the model keeps batching calls that clearly depend on each other, add one line to the system prompt, straight from Anthropic's own troubleshooting guidance: "Only batch tool calls that are independent of each other."</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One formatting rule trips people up here regardless of provider: whichever calls you ran, all of their results have to come back together, in the next single user turn. For Claude specifically, every <code>tool_result</code> block must come before any plain text in that message, and splitting results across separate messages is the single most common reason people see parallel tool calls quietly stop happening. The model reads that pattern as "this conversation doesn't actually want batched calls" and adjusts.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Claude vs OpenAI: Parallel Tool Calling Side-by-Side</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Aspect</th><th>Claude (Messages API)</th><th>OpenAI (Chat Completions)</th></tr></thead>
+<tbody>
+<tr><td>Where calls show up</td><td>Multiple <code>tool_use</code> content blocks in one response, <code>stop_reason: "tool_use"</code></td><td>Multiple entries in the message's <code>tool_calls</code> array</td></tr>
+<tr><td>Default behavior</td><td>On: Claude may call several tools in one turn</td><td>On: the model may call multiple functions in one turn</td></tr>
+<tr><td>How to force a single call</td><td><code>disable_parallel_tool_use: true</code> inside <code>tool_choice</code> (not a top-level param)</td><td>Top-level <code>parallel_tool_calls: false</code></td></tr>
+<tr><td>Effect of disabling</td><td>With <code>auto</code>: at most 1 call, 0 still allowed. With <code>any</code>/<code>tool</code>: exactly 1</td><td>Ensures exactly zero or one tool is called</td></tr>
+<tr><td>Execution order</td><td>Not prescribed by the API; your code decides concurrent vs. sequential</td><td>Not prescribed; array order isn't a guarantee of execution order</td></tr>
+<tr><td>Result/response format</td><td>One <code>tool_result</code> per <code>tool_use_id</code>, all in a single next user message, before any text</td><td>One <code>function_call_output</code> per <code>call_id</code></td></tr>
+<tr><td>Known gotcha</td><td>Computer use and browser use batch actions must run sequentially, stop at first failure</td><td>Built-in tools (web search, code interpreter) can't share a parallel batch with function calls on GPT-5-class models</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Parallel Tool Calling</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Real latency win for independent, read-only lookups: three API calls in the time of one</li>
+<li>No extra code required to get it; it's the default on both providers</li>
+<li>Scales naturally as you add more independent tools; the model batches them on its own</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Parallel Tool Calling</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Shared-state writes can silently corrupt data with no exception, no warning, and a confident-looking success message from each call</li>
+<li>Execution order isn't guaranteed by either API, so "it worked in my test" doesn't prove the race can't happen</li>
+<li>A retried or duplicated call needs its own dedup logic; neither provider does this for you automatically</li>
+<li>Firing several tool calls at once against downstream APIs burns through rate limits faster, which is its own failure mode worth planning a <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">retry strategy for 429s</a> around</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Treating every tool as safe to run concurrently by default.</strong> Classify read vs. write before you pick an execution strategy, not after something goes wrong.</li>
+<li><strong>Splitting tool results across separate messages.</strong> On Claude this isn't just a formatting nitpick; it actively teaches the model to stop batching calls, which quietly kills the latency benefit you were trying to get.</li>
+<li><strong>Assuming array order equals execution or completion order.</strong> Neither API promises this. If a later call in the array needs an earlier one's output, that's a dependency you have to enforce yourself.</li>
+<li><strong>Skipping idempotency keys because "the lock already fixed it."</strong> A lock stops two calls from racing each other. It does nothing if the same logical request gets retried and resubmitted as a fresh call a few seconds later.</li>
+<li><strong>Forgetting that forced tool use changes what "disabled" means.</strong> <code>disable_parallel_tool_use</code> under <code>tool_choice: "any"</code> or <code>"tool"</code> guarantees exactly one call; under <code>"auto"</code> it only caps you at one, with zero still possible.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is parallel tool calling in LLM agents on by default?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes, on both Claude and OpenAI's chat/completions APIs. You don't opt in; you opt out, with <code>disable_parallel_tool_use</code> on Claude's <code>tool_choice</code> object or <code>parallel_tool_calls=False</code> on OpenAI's request.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does parallel tool calling run my tools concurrently?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Only if your code chooses to. The API just hands you a batch of requested calls; running them with <code>asyncio.gather</code>, a thread pool, or one at a time in a loop are all valid responses to the same batch. Most agent frameworks default to concurrent execution for the speed, which is exactly why the shared-state race in this article is easy to hit by accident.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How do I stop parallel tool calls from corrupting shared state?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Classify each tool as read-only or write. Run read-only tools concurrently without worry. For writes that touch the same resource, serialize them with a lock (or push the mutation into something that's already safe for concurrent writers, like a database transaction), and add an idempotency key so a retried or duplicated call doesn't apply the same change twice.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Should I just disable parallel tool calls everywhere to be safe?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>I wouldn't. You'd lose the latency benefit for every read-only lookup along with the risky writes. It's a blunt fix for a problem that only affects a subset of your tools. Fixing the actual write paths with locking and idempotency keys keeps the speed where it's free and removes the risk where it isn't.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the real difference between Claude and OpenAI here?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Mostly where the controls live, not what they do. OpenAI's switch is a top-level request parameter. Claude's lives inside <code>tool_choice</code>, and its exact effect depends on whether <code>tool_choice</code> is set to <code>auto</code>, <code>any</code>, or <code>tool</code>. The underlying risk, shared-state writes racing each other, is identical on both.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Parallel tool calling isn't something you should turn off out of caution, and it isn't something you can leave completely unmanaged either. The fix is boring in the best way: know which of your tools write, put a lock around the ones that share state, and give every write an idempotency key before you ever see the bug in production instead of after. I'd rather spend twenty minutes adding that now than find a corrupted inventory count the way I did, with two successful-looking tool calls and zero errors telling me anything was wrong.</p><!-- /wp:paragraph -->
