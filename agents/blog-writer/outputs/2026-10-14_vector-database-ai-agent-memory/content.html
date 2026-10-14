@@ -1,0 +1,199 @@
+<!-- wp:paragraph --><p>Last month I rebuilt an agent's memory layer twice in one week. The first version used Chroma, because the tutorial used Chroma, and it worked beautifully. Then it didn't, the moment two agent instances hit the same memory store from different processes. The second version used Qdrant, and it took an hour to realize I'd made one collection per user like some kind of maniac, exactly what Qdrant's own docs tell you not to do.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've gotten as far as <a href="https://www.firstevolvenextscale.com/langgraph-long-term-memory/">giving your agent long-term memory</a>, you've probably hit the question this whole piece is about: which vector database for AI agent memory actually survives contact with a second user, a second agent, or a thousand more rows than your demo had. There are three realistic candidates for where those embeddings live, and the tutorials rarely tell you which one holds up. Picking the wrong one doesn't fail loudly. It just gets slower, or starts leaking one tenant's memories into another's filter, three weeks after you shipped it.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's an honest vector database for AI agent memory comparison between Qdrant, Chroma, and pgvector: what each one actually does when you give it a filtered query, where the index build genuinely hurts, and the exact error message you'll see when you get the embedding dimension wrong (because you will, at least once).</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What Picking a Vector Database for AI Agent Memory Actually Involves</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A RAG demo over a static document set and a live agent's memory store are not the same workload, even though both are "vector search." A RAG index is written once and queried a lot. Agent memory is written constantly, by multiple agents or multiple users, and almost every read needs a filter attached: "only this user's memories," "only this agent's episodic log," "only memories from this session." Get that filter wrong, or skip it, and you're not just risking a privacy leak between tenants, you're also <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">dumping irrelevant memories straight into the context window</a> on every single call.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The index choice matters less here than one question: how does this database isolate one tenant's vectors from everyone else's, and what does that cost you? That's the real question.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That's the lens for the rest of this piece. I'm not benchmarking raw query latency on a billion vectors, nobody running an agent memory store at that scale is picking a database from a blog post. I'm looking at what happens with the second thing most people actually hit: a few hundred thousand memories, split across hundreds or thousands of agents and users, queried with a metadata filter on almost every call.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've already wired up <a href="https://www.firstevolvenextscale.com/crewai-unified-memory-system/">a framework's own memory system, like CrewAI's unified memory</a>, you've seen one side of this: a single store, a single filter key, one framework deciding how to call it. This article is one layer down, comparing the three stores themselves rather than the framework wrapper around them.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-1}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">pgvector: The Boring Default If You're Already on Postgres</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>pgvector turns Postgres into a vector store by adding a <code>vector</code> column type and two index types (HNSW and IVFFlat) you build like any other index. The appeal for agent memory is specific: if your agent already uses Postgres to <a href="https://www.firstevolvenextscale.com/langgraph-checkpointing/">resume after a crash via checkpoints</a>, or to log user records and tool calls, your memories live in the same transaction as everything else. No second system to keep in sync, no separate backup story.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE agent_memory (
+    id bigserial PRIMARY KEY,
+    agent_id text NOT NULL,
+    content text NOT NULL,
+    embedding vector(1536)
+);
+
+CREATE INDEX ON agent_memory USING hnsw (embedding vector_cosine_ops);
+
+-- every real agent-memory query is filtered, so filter + vector search together:
+SELECT id, content, embedding <=> '[0.01, 0.02, ...]' AS distance
+FROM agent_memory
+WHERE agent_id = 'agent-42'
+ORDER BY embedding <=> '[0.01, 0.02, ...]'
+LIMIT 5;
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this against a real Postgres 16 instance with pgvector installed, inserted a handful of rows for two different agent IDs, and the filtered <code>WHERE agent_id = ...</code> query only ever returned that agent's memories, as you'd hope. The default HNSW build parameters, <a href="https://github.com/pgvector/pgvector#hnsw">per pgvector's own documentation</a>, are <code>m = 16</code> and <code>ef_construction = 64</code>; you can raise both for better recall at the cost of a slower, bigger index, with <code>CREATE INDEX ... WITH (m = 16, ef_construction = 64)</code>.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the part the "just add an index" tutorials skip: HNSW builds want to fit in <code>maintenance_work_mem</code>, and when they don't, Postgres tells you so directly. I deliberately set <code>maintenance_work_mem</code> to 1MB, way too small, and built an HNSW index on 20,000 rows of 128-dimension vectors. Postgres didn't error. It just raised this notice before the build:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>NOTICE: Building will take significantly more time.
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Not an error. Just a warning. It's one you'll only see if you're watching for Postgres notices, which most ORMs swallow by default. Bump <code>maintenance_work_mem</code> to something like <code>8GB</code> for a real build (the official docs use that exact example), and if you're building in Docker with multiple parallel workers, raise <code>--shm-size</code> to match or the build can fail outright on shared memory, a gotcha that's easy to hit the first time you containerize this.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Get the vector's dimension wrong and pgvector won't guess what you meant:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># inserting a 5-dimension vector into a column declared vector(8)
+# psycopg.errors.DataException: expected 8 dimensions, not 5
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That error came straight out of a live insert in my test database, not from documentation. It's a hard failure at write time, which I actually prefer to a silent truncation or padding; you find the mismatch the first time you run the code, not three weeks into production.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-2}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Qdrant: Built Around Many Tenants in One Collection</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Qdrant is a purpose-built vector database, and it shows the moment you look at how it wants you to handle multiple agents or users. Its own <a href="https://qdrant.tech/documentation/guides/multiple-partitions/">multi-tenancy documentation</a> is blunt about the instinct most people start with: "creating a separate collection for each tenant is rarely the most efficient approach." Each collection carries its own resource overhead, and Qdrant Cloud caps a cluster at 1,000 collections by default, so the one-collection-per-user design I shipped in my first draft was never going to hold up.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The recommended pattern is one shared collection with a tenant field on every point, plus a payload index on that field marked <code>is_tenant: true</code> (available since Qdrant 1.11.0), which tells Qdrant to co-locate each tenant's vectors on disk so filtered reads stay sequential instead of scattered:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    VectorParams, Distance, PointStruct,
+    Filter, FieldCondition, MatchValue,
+    PayloadSchemaType, KeywordIndexParams,
+)
+
+client = QdrantClient(url="http://localhost:6333")
+
+client.create_collection(
+    collection_name="agent_memory",
+    vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+)
+client.create_payload_index(
+    collection_name="agent_memory",
+    field_name="agent_id",
+    field_schema=KeywordIndexParams(type=PayloadSchemaType.KEYWORD, is_tenant=True),
+)
+
+client.upsert(collection_name="agent_memory", points=[
+    PointStruct(id=1, vector=[0.01, 0.02, 0.03], payload={"agent_id": "agent-42", "content": "..."}),
+])
+
+results = client.query_points(
+    collection_name="agent_memory",
+    query=[0.01, 0.02, 0.03],
+    query_filter=Filter(must=[FieldCondition(key="agent_id", match=MatchValue(value="agent-42"))]),
+    limit=5,
+).points
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>I ran this pattern (against Qdrant's embedded local mode rather than a full server, which is enough to exercise the filtering and indexing logic) with three points across two tenant IDs, and the filtered query only ever came back with the matching tenant's point. For a lot of small, similar tenants, this payload-partitioning approach is what Qdrant recommends by default. For a handful of large tenants that need stronger isolation, it also supports dedicated shards per tenant, and a tiered setup that starts tenants on a shared fallback shard and promotes the ones that grow past roughly 20,000 points to their own shard.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the gotcha that'll bite anyone following an older tutorial: <code>client.search()</code>, the method every pre-2025 example uses, is gone in current <code>qdrant-client</code>. I tried calling it against a live client on version 1.19.1 and got <code>AttributeError: 'QdrantClient' object has no attribute 'search'</code>, not a deprecation warning, a hard crash. <code>query_points()</code> is the replacement, and it's what the code above uses. If you're copying a Qdrant snippet from a two-year-old Stack Overflow answer, check for <code>.search(</code> first.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Dimension mismatches fail just as hard here, with a message that's actually more specific than pgvector's: inserting a 5-dimension vector into a collection configured for 8 dimensions threw <code>ValueError: Wrong input: Vector dimension error: expected dim: 8, got 5 for vector ''</code> in my test, caught before the point ever touched storage.</p><!-- /wp:paragraph -->
+
+{{IMG:inline-3}}
+
+<!-- wp:heading --><h2 class="wp-block-heading">Chroma: Fastest to a Working Prototype, One Node Only</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Chroma's whole pitch is that you can go from zero to a working vector store in about four lines, no server to stand up, no schema to design upfront:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import chromadb
+
+client = chromadb.PersistentClient(path="./agent_memory_db")
+collection = client.create_collection(name="agent_memory", metadata={"hnsw:space": "cosine"})
+
+collection.add(
+    ids=["1", "2"],
+    embeddings=[[0.01, 0.02, 0.03, 0.04], [0.05, 0.06, 0.07, 0.08]],
+    metadatas=[{"agent_id": "agent-42"}, {"agent_id": "agent-7"}],
+    documents=["User prefers terse answers", "User wants code examples only"],
+)
+
+results = collection.query(
+    query_embeddings=[[0.015, 0.025, 0.035, 0.045]],
+    n_results=5,
+    where={"agent_id": "agent-42"},
+)
+</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>That's it. No server. No schema upfront. I ran this exact script locally with a persistent on-disk client, and the metadata filter worked immediately, no index tuning, no extension to enable.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is genuinely why Chroma shows up in so many agent tutorials: there's nothing standing between you and a working demo.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The honest limitation is right there in <a href="https://cookbook.chromadb.dev/core/system_constraints/">Chroma's own system-constraints documentation</a>: open-source, self-hosted Chroma is a single-node database. Scaling it means scaling the one node vertically, not adding replicas, and there's no built-in replication or clustering in that deployment mode. The same docs note that in a single-node deployment, the HNSW index segment gets loaded into process memory on use, which means your available RAM is the practical ceiling on how many memories you can hold, not disk space. Chroma Cloud exists specifically to remove that ceiling, but at that point you've left the thing that made Chroma attractive in the first place: running it yourself, for free, with zero infrastructure.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Dimension errors here are the friendliest of the three, at least in wording: adding a 5-dimension embedding to a collection expecting 8 raised <code>InvalidArgumentError: Collection expecting embedding with dimension of 8, got 5</code> when I tried it, which tells you immediately what's wrong without digging through a stack trace.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd reach for Chroma specifically for a prototype, a side project, or an agent that will only ever run as one process against its own memory file. The instant you need two app servers writing to the same agent memory store concurrently, you've outgrown self-hosted Chroma's actual deployment model, whatever the demo made it feel like.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Qdrant vs Chroma vs pgvector: Side by Side</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Aspect</th><th>pgvector</th><th>Qdrant</th><th>Chroma</th></tr></thead>
+<tbody>
+<tr><td>What it is</td><td>Postgres extension (<code>vector</code> column + index)</td><td>Purpose-built vector database</td><td>Embedded/self-hosted vector store, Rust core</td></tr>
+<tr><td>Multi-tenant pattern</td><td>A <code>WHERE agent_id = ...</code> clause like any SQL filter</td><td>One collection, payload field marked <code>is_tenant: true</code></td><td>One collection, <code>where</code> metadata filter</td></tr>
+<tr><td>Index build cost</td><td>HNSW build wants to fit in <code>maintenance_work_mem</code>; slow, not silent, if it doesn't</td><td>Can disable the global index per tenant with <code>payload_m</code> for many small tenants</td><td>HNSW segment loads fully into process memory on use</td></tr>
+<tr><td>Horizontal scale</td><td>Whatever your Postgres setup already does (read replicas, partitioning)</td><td>Built-in sharding, dedicated or tiered per tenant</td><td>Vertical only, self-hosted; horizontal needs Chroma Cloud</td></tr>
+<tr><td>Dimension-mismatch error</td><td><code>DataException: expected N dimensions, not M</code></td><td><code>ValueError: Vector dimension error: expected dim N, got M</code></td><td><code>InvalidArgumentError: Collection expecting embedding with dimension of N, got M</code></td></tr>
+<tr><td>Known gotcha</td><td><code>maintenance_work_mem</code> too small silently makes builds much slower</td><td><code>client.search()</code> is removed, not deprecated, as of recent <code>qdrant-client</code> versions</td><td>Self-hosted mode has no replication or clustering, whatever the quickstart implies</td></tr>
+<tr><td>Best fit for agent memory</td><td>You already run Postgres for agent state or checkpoints</td><td>Many agents/users, production, need real tenant isolation</td><td>Prototype, single process, want zero infra</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of pgvector for Agent Memory</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>One database for agent state, checkpoints, and memory; one backup, one transaction boundary</li>
+<li>Filtering is just SQL, so anyone who already knows your schema can query agent memory without learning a new client</li>
+<li>HNSW index tuning (<code>m</code>, <code>ef_construction</code>, <code>ef_search</code>) is documented and standard Postgres index behavior, not a new mental model</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of pgvector for Agent Memory</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>You inherit Postgres's own scaling story; there's no built-in sharding designed around per-tenant vector workloads the way Qdrant has</li>
+<li>Large HNSW builds need real <code>maintenance_work_mem</code>, and nobody tells you that until you read the fine print or watch the notice scroll by</li>
+<li>No native multi-tenant isolation features beyond what you build yourself with a column and an index</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Creating one collection or table per tenant "to keep things clean."</strong> It's the first instinct and it's wrong for all three stores once you pass a few dozen tenants; filter on a tenant field inside one collection instead.</li>
+<li><strong>Copying a Qdrant example that calls <code>client.search()</code>.</strong> On current <code>qdrant-client</code> that's an <code>AttributeError</code>, not a warning. Use <code>query_points()</code>.</li>
+<li><strong>Assuming self-hosted Chroma scales the way its quickstart feels.</strong> It's single-node by design; plan for Chroma Cloud or a different store before you need horizontal scale, not after.</li>
+<li><strong>Building a large HNSW index on default Postgres memory settings and blaming pgvector for the slowness.</strong> Raise <code>maintenance_work_mem</code> first and watch for the notice telling you it's too small.</li>
+<li><strong>Trusting your embedding pipeline's dimension without a test.</strong> All three stores reject a mismatched vector outright, which is good, but you'll only catch it before production if you actually try the wrong dimension once in a test.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the best vector database for AI agent memory?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>There isn't one universal answer. pgvector is the right call if you already run Postgres for agent state. Qdrant is the stronger choice once you have many agents or users and need real tenant isolation at scale. Chroma is the fastest way to get a single-process prototype working, with the clear limitation that self-hosted Chroma doesn't scale horizontally on its own.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I use Chroma in production for an AI agent?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes, as long as production for you means a single node with enough RAM to hold the HNSW index, or you move to Chroma Cloud for managed horizontal scale. Self-hosted Chroma has no built-in replication or clustering. That's the deployment model, by design, not an oversight.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does pgvector support multi-tenant AI agent memory?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Yes, but not through a dedicated feature. You add an <code>agent_id</code> (or <code>user_id</code>) column, index it alongside your HNSW vector index, and filter on it in every query, same as you'd isolate any other tenant data in Postgres.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Why did my Qdrant code break with "object has no attribute 'search'"?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>You're running a current <code>qdrant-client</code> version against code written for an older one. The <code>search()</code> method has been removed, not just deprecated; switch the call to <code>query_points()</code>, which takes the same vector and filter arguments.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need a separate vector database if I'm already using semantic caching?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Not necessarily the same instance, but it's worth being deliberate about it. If you're already running <a href="https://www.firstevolvenextscale.com/semantic-caching-llm-agents/">semantic caching for LLM agents</a>, that cache and your agent's long-term memory store solve different problems (deduping repeated queries vs. recalling past context) and mixing them in one collection tends to make both harder to tune later.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If I'm starting a new agent today and I'm already running Postgres, I'm reaching for pgvector and not thinking twice about it; one less system to operate beats a marginally fancier index. If I'm building something with real multi-tenant scale in mind from day one, agents or users in the thousands, I'd go straight to Qdrant and set up payload partitioning before writing the first row, rather than discovering the one-collection-per-tenant trap the way I did.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Chroma still earns its spot for the first week of a project, when you just need the thing to work. Skip the debate about which store is "best" and ask a narrower question instead: will this still be one process, one node, six months from now? Answer that honestly, and the right store picks itself.</p><!-- /wp:paragraph -->

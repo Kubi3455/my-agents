@@ -1,0 +1,47 @@
+{
+  "title": "Vector Database for AI Agent Memory: Qdrant vs Chroma vs pgvector",
+  "slug": "vector-database-ai-agent-memory",
+  "excerpt": "A hands-on comparison of Qdrant, Chroma, and pgvector for storing AI agent memory, including the real errors each one throws when you get a filter or a dimension wrong.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": ["AI Agent Memory", "Vector Database", "Vector Search", "Vector Store Setup", "Self-Hosted Vector Database", "AI Agent Multi-Tenancy", "Qdrant", "Chroma", "pgvector", "Vector Database Comparison"],
+  "focus_keyword": "vector database for ai agent memory",
+  "seo_title": "Vector Database for AI Agent Memory: Qdrant vs Chroma",
+  "meta_description": "Qdrant, Chroma, and pgvector compared for AI agent memory: real HNSW builds, tenant filtering, and the exact errors each one throws at scale.",
+  "social_message": "I rebuilt my agent's memory layer twice in one week because I picked the wrong vector database first.\n\nQdrant, Chroma, and pgvector all handle AI agent memory differently once you add more than one agent or user. I ran real HNSW builds, tenant filtering, and dimension-mismatch errors on all three, then compared the exact failure modes.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/vector-database-ai-agent-memory/\n📌 On Instagram? Link in bio.\n\n#AIAgentMemory #VectorDatabase #VectorStoreSetup #Python #AIAgents #AIEngineering",
+  "quality": {"seo_checklist": 12, "human_voice_test": 8, "images_reviewed": true},
+  "images": [
+    {
+      "key": "featured",
+      "file": "vector-database-ai-agent-memory-featured.jpg",
+      "title": "Vector Database for AI Agent Memory: Qdrant vs Chroma vs pgvector",
+      "alt": "Vector database for AI agent memory: a filtered query branching toward pgvector, Qdrant, and Chroma.",
+      "caption": "",
+      "description": "An agent memory query flowing through a filter into three candidate vector databases, pgvector, Qdrant, and Chroma, each marked with how it handles scale."
+    },
+    {
+      "key": "inline-1",
+      "file": "vector-database-ai-agent-memory-filtering.webp",
+      "title": "Filtering AI agent memory by tenant before vector search",
+      "alt": "A metadata filter splitting an AI agent memory query into separate per-agent partitions.",
+      "caption": "Every real agent memory query needs a tenant filter attached, not just a raw similarity search.",
+      "description": "Illustrates why agent memory queries need a filter key (agent or user ID) applied before vector similarity search, not after."
+    },
+    {
+      "key": "inline-2",
+      "file": "vector-database-ai-agent-memory-hnsw-memory.webp",
+      "title": "pgvector HNSW index build and maintenance_work_mem",
+      "alt": "A pgvector database connected to an HNSW index, with a low memory gauge and a slow build-time clock.",
+      "caption": "A small maintenance_work_mem setting doesn't fail the HNSW build, it just makes it much slower.",
+      "description": "Shows pgvector's HNSW index build depending on maintenance_work_mem, with a low memory setting producing a slow build rather than an outright failure."
+    },
+    {
+      "key": "inline-3",
+      "file": "vector-database-ai-agent-memory-multitenancy.webp",
+      "title": "Qdrant multi-tenant AI agent memory via payload partitioning",
+      "alt": "A single Qdrant collection holding separate tenant partitions for AI agent memory.",
+      "caption": "",
+      "description": "Qdrant's recommended multi-tenancy pattern: one shared collection partitioned by a tenant field, instead of a separate collection per tenant."
+    }
+  ]
+}

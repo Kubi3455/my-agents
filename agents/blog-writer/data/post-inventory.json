@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1686,
+      "date": "2026-10-13",
+      "title": "Parallel Tool Calling in LLM Agents: When It Helps and When It Breaks",
+      "slug": "parallel-tool-calling-llm-agents",
+      "link": "https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Reliability",
+        "Claude API",
+        "Idempotent Retries",
+        "LLM Agents",
+        "OpenAI API",
+        "Parallel Tool Calling",
+        "Python",
+        "Race Conditions",
+        "Shared State",
+        "Tool Calling"
+      ],
+      "excerpt": "A model that calls two tools at once isn’t dangerous by itself. It’s the shared state those calls both touch that breaks quietly, with no error anywhere in sight."
+    },
+    {
       "id": 1680,
       "date": "2026-10-12",
       "title": "CrewAI Flows vs LangGraph Graphs: Picking the Right Control Flow",
@@ -1044,6 +1067,11 @@
       "name": "Artificial Intelligence"
     },
     {
+      "id": 112,
+      "count": 8,
+      "name": "Python"
+    },
+    {
       "id": 451,
       "count": 7,
       "name": "LangGraph"
@@ -1052,11 +1080,6 @@
       "id": 453,
       "count": 7,
       "name": "Multi-Agent Systems"
-    },
-    {
-      "id": 112,
-      "count": 7,
-      "name": "Python"
     },
     {
       "id": 525,
@@ -1112,6 +1135,11 @@
       "id": 450,
       "count": 4,
       "name": "CrewAI"
+    },
+    {
+      "id": 456,
+      "count": 4,
+      "name": "LLM Agents"
     },
     {
       "id": 438,
@@ -1174,11 +1202,6 @@
       "name": "LangGraph debugging"
     },
     {
-      "id": 456,
-      "count": 3,
-      "name": "LLM Agents"
-    },
-    {
       "id": 440,
       "count": 3,
       "name": "Local AI"
@@ -1217,6 +1240,11 @@
       "id": 542,
       "count": 2,
       "name": "AI Agent Observability"
+    },
+    {
+      "id": 599,
+      "count": 2,
+      "name": "AI Agent Reliability"
     },
     {
       "id": 551,
@@ -1289,6 +1317,11 @@
       "name": "Autonomous AI Agents"
     },
     {
+      "id": 550,
+      "count": 2,
+      "name": "Claude API"
+    },
+    {
       "id": 85,
       "count": 2,
       "name": "Computer Vision"
@@ -1329,6 +1362,11 @@
       "name": "How Artificial Intelligence Works"
     },
     {
+      "id": 557,
+      "count": 2,
+      "name": "Idempotent Retries"
+    },
+    {
       "id": 491,
       "count": 2,
       "name": "LangGraph agents"
@@ -1342,6 +1380,11 @@
       "id": 585,
       "count": 2,
       "name": "OpenAI Agents SDK"
+    },
+    {
+      "id": 560,
+      "count": 2,
+      "name": "OpenAI API"
     },
     {
       "id": 243,
@@ -1497,11 +1540,6 @@
       "id": 553,
       "count": 1,
       "name": "AI Agent Rate Limits"
-    },
-    {
-      "id": 599,
-      "count": 1,
-      "name": "AI Agent Reliability"
     },
     {
       "id": 329,
@@ -1894,11 +1932,6 @@
       "name": "Claude AI"
     },
     {
-      "id": 550,
-      "count": 1,
-      "name": "Claude API"
-    },
-    {
       "id": 421,
       "count": 1,
       "name": "Claude for bloggers"
@@ -2264,11 +2297,6 @@
       "name": "IBM AI Engineering"
     },
     {
-      "id": 557,
-      "count": 1,
-      "name": "Idempotent Retries"
-    },
-    {
       "id": 526,
       "count": 1,
       "name": "infinite loop AI"
@@ -2609,11 +2637,6 @@
       "name": "Open Source AI"
     },
     {
-      "id": 560,
-      "count": 1,
-      "name": "OpenAI API"
-    },
-    {
       "id": 564,
       "count": 1,
       "name": "OpenTelemetry"
@@ -2622,6 +2645,11 @@
       "id": 222,
       "count": 1,
       "name": "Organic Traffic"
+    },
+    {
+      "id": 606,
+      "count": 1,
+      "name": "Parallel Tool Calling"
     },
     {
       "id": 575,
@@ -2692,6 +2720,11 @@
       "id": 499,
       "count": 1,
       "name": "Python AI"
+    },
+    {
+      "id": 607,
+      "count": 1,
+      "name": "Race Conditions"
     },
     {
       "id": 580,
@@ -2799,6 +2832,11 @@
       "name": "SEO Tips"
     },
     {
+      "id": 609,
+      "count": 1,
+      "name": "Shared State"
+    },
+    {
       "id": 471,
       "count": 1,
       "name": "Software Architecture"
@@ -2892,6 +2930,11 @@
       "id": 556,
       "count": 1,
       "name": "Token Bucket Rate Limiting"
+    },
+    {
+      "id": 608,
+      "count": 1,
+      "name": "Tool Calling"
     },
     {
       "id": 548,
