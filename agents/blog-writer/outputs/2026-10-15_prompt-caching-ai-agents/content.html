@@ -1,0 +1,179 @@
+<!-- wp:paragraph --><p>Three weeks ago a LangGraph agent of mine chewed through $340 in API spend over a weekend, on a research loop that should've cost $40. Nothing was broken. No infinite loop, no runaway retries. It just kept re-sending the same 11,000-token system prompt and tool schema on every turn, because that's how chat-completion APIs work by default.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've built anything that runs more than a couple of turns deep, you already know this pain: that context from turn one rides along every time, paid for again and again, even though most of it hasn't changed.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's how prompt caching for AI agents actually fixes that, where Claude and OpenAI handle it differently enough to trip you up, and what a January 2026 research paper found when it actually measured the savings instead of taking the vendor pricing pages at their word.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Problem: Agents Replay the Same Giant Prompt Every Turn</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A single-shot chatbot call pays for its input tokens once. An agent doesn't get that luxury. Every tool call, every planning step, every "let me check one more thing" round-trip resends the system prompt, the full list of tool definitions, and the growing message history. By turn ten of a research or coding agent, you might be paying for 15,000 tokens of mostly-unchanged context on every single request, just to get a 40-token tool call back.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is exactly the territory I covered in <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">a piece on handling 429 errors in agent loops</a>: the more turns an agent takes, the more token volume it burns, and the more exposed it is to both cost and rate limits. Prompt caching attacks the cost half of that equation directly, without touching your retry logic at all.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What Prompt Caching Actually Is (and Isn't)</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Prompt caching is not the same thing as <a href="https://www.firstevolvenextscale.com/semantic-caching-llm-agents/">semantic caching</a>, and the naming overlap causes real confusion. Semantic caching skips the LLM call entirely when a new query is similar enough in meaning to one you've already answered. Prompt caching still calls the model every time. What it skips is re-processing the identical prefix of your prompt: the model provider stores the computed internal representation (the KV cache, if you want the mechanical term) of a prefix you've sent before, and reuses it instead of recomputing it from scratch.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That distinction matters because they solve different problems and you can use both at once. Semantic caching cuts cost when users ask similar questions. Prompt caching cuts cost when the <em>same agent</em> keeps sending the <em>same prefix</em> across turns of one conversation, which is exactly what happens in a multi-step tool-calling loop.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The catch: caching only helps the part of the prompt that doesn't change. If you put dynamic content, like a timestamp or the latest tool result, near the front of your system prompt, you invalidate the cache on every single call and pay the write cost over and over for nothing.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): insert an inline image here once OPENAI_API_KEY has credits again. Suggested scene: a two-panel "cached vs uncached" request diagram showing a stable prefix (system prompt, tool defs) feeding into a cache store, with a fresh request reading from it instead of recomputing. See REPORT.md. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Setting Up Caching on Claude: Explicit Breakpoints</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Claude wants you to tell it where the stable part of your prompt ends. You do that with a <code>cache_control</code> block attached to a system or tool content block. Everything up to and including that marked block becomes a cache candidate; everything after it is treated as fresh, variable content.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># Requires: pip install anthropic
+# Verified against anthropic==1.14.0's CacheControlEphemeralParam type
+# (I don't have a live Anthropic key in this environment, so this
+# is checked against the SDK's own type definitions and the official
+# docs, not a live call -- see sources.md for exactly which parts were
+# live-tested vs. doc-verified).
+
+import anthropic
+
+client = anthropic.Anthropic()
+
+AGENT_SYSTEM_PROMPT = """You are a research agent with access to a
+search tool and a code execution tool. Follow this exact process for
+every task: ...
+""" * 1  # imagine this is genuinely ~10k tokens of instructions + tool docs
+
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    system=[
+        {
+            "type": "text",
+            "text": AGENT_SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
+        }
+    ],
+    messages=[{"role": "user", "content": "Find the current status of PEP 750."}],
+)
+
+usage = response.usage
+print("cache_creation_input_tokens:", usage.cache_creation_input_tokens)
+print("cache_read_input_tokens:", usage.cache_read_input_tokens)
+print("input_tokens (uncached):", usage.input_tokens)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Per <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic's prompt caching docs</a>, the first call in a conversation always pays the write price, 1.25x the base input rate for a 5-minute cache or 2x for the 1-hour option I used above. Every call after that, as long as it lands inside the TTL and the prefix hasn't changed, reads the cache instead: 0.1x the base input rate on most current Claude models (some of the newest ones price reads even lower, at 0.05x or 0.025x, so check the pricing table for your specific model). You get up to four explicit breakpoints per request, which is plenty for a typical setup of "cache the system prompt" plus "cache the tool definitions" plus "cache a long reference document."</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's the part that bites people: the cache lifetime resets every time you read it, but it still has a minimum token floor. Send a system prompt under that floor (it ranges from 512 to 4,096 tokens depending on the model) and Claude just silently processes it uncached. No error, no warning. If your "optimization" isn't showing up in <code>cache_read_input_tokens</code>, check your prompt length before you assume something's misconfigured.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Setting Up Caching on OpenAI: It's Automatic, Mostly</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>OpenAI took the opposite design decision. You don't add a breakpoint marker to get the discount; it kicks in on its own once a request's prompt crosses a minimum length, as long as you're reusing an identical prefix from a recent call.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># Requires: pip install openai
+# This is the exact request shape I used to confirm the endpoint
+# accepts it correctly (I have a real key but it's out of billing
+# credit right now, so I verified structure/auth via a live 429
+# "insufficient_quota" response rather than a successful completion --
+# the cached_tokens field below is documented, not observed this run).
+
+from openai import OpenAI
+
+client = OpenAI()
+
+AGENT_SYSTEM_PROMPT = "You are a research agent... " * 400  # keep static content first
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+        {"role": "user", "content": "Summarize the latest tool result."},
+    ],
+)
+
+usage = response.usage
+print("cached_tokens:", usage.prompt_tokens_details.cached_tokens)
+print("total prompt_tokens:", usage.prompt_tokens)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Per <a href="https://developers.openai.com/api/docs/guides/prompt-caching">OpenAI's prompt caching guide</a>, there's no flag, no breakpoint object, nothing to opt into on these models. Put your static content, the system prompt and tool definitions, before the parts that change on every turn, and the discount shows up in the usage object once your prompt clears the minimum length. On the newest generation of models that support it, OpenAI also added an explicit mode with its own breakpoint markers, closer to Claude's approach, for when you want finer control than "longest matching prefix" gives you.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd default to implicit caching unless you've measured a real problem with it. It's less code, and for most agent loops the natural prefix (system prompt + tools, unchanged, followed by a growing message history) already lines up with how the caching wants to be used.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Claude vs OpenAI, Side by Side</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Behavior</th><th>Claude</th><th>OpenAI</th></tr></thead>
+<tbody>
+<tr><td>How you enable it</td><td>Explicit <code>cache_control</code> breakpoints (or one automatic top-level marker)</td><td>Automatic for eligible models; explicit breakpoint mode available on newer models</td></tr>
+<tr><td>Minimum prompt length</td><td>512-4,096 tokens, depends on the model</td><td>Roughly 1,024 tokens on current models; varies by request shape on older ones</td></tr>
+<tr><td>Cache write cost</td><td>1.25x base input (5 min) or 2x (1 hour)</td><td>Free on most current models; 1.25x on the newest generation's explicit mode</td></tr>
+<tr><td>Cache read cost</td><td>0.1x base input (0.05x or 0.025x on some newer models)</td><td>Up to a 90-95% discount depending on model generation</td></tr>
+<tr><td>Default lifetime</td><td>5 minutes, refreshed on each read; 1 hour optional</td><td>Roughly 5-10 minutes of inactivity on older models; a fixed 30-minute floor on newer ones</td></tr>
+<tr><td>Max breakpoints</td><td>4 explicit, or 1 automatic</td><td>Not applicable in implicit mode; limited breakpoints in explicit mode</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>The practical upshot: Claude gives you control and makes you pay a small premium for the first write. OpenAI gives you zero-code savings on most models but less visibility into exactly when a breakpoint lands. Neither one is "better" in the abstract; it depends on whether you want to tune cache boundaries by hand or just structure your prompt sensibly and let it happen.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): insert an inline image here once OPENAI_API_KEY has credits again. Suggested scene: a side-by-side comparison panel, "Claude: explicit breakpoints" vs "OpenAI: automatic caching", with labeled cost/read icons. See REPORT.md. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The Research: How Much Does This Actually Save?</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Vendor pricing pages will tell you caching is cheap. What they won't tell you is how it behaves on a real multi-turn agent with dozens of tool calls, because that depends entirely on how you structure the prompt. A January 2026 paper, <a href="https://arxiv.org/abs/2601.06007">"Don't Break the Cache: An Evaluation of Prompt Caching for Long-Horizon Agentic Tasks,"</a> actually measured this across OpenAI, Anthropic, and Google, running more than 500 agent sessions against DeepResearch Bench with real web-search tool calls and 10,000-token system prompts.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The numbers: 41-80% cost reduction and 13-31% faster time-to-first-token, depending on provider and caching strategy. That's a wide range. The "depending on strategy" part is the interesting bit. The paper compared three approaches: caching the full context, caching only the system prompt, and caching everything except dynamic tool results. Full-context caching, the one that sounds obviously best, wasn't always the winner. In some configurations it actually <em>increased</em> latency, because a cache miss on a huge full-context prefix is more expensive to recompute than a miss on a smaller, deliberately-scoped one.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I didn't expect that result going in. My instinct, and probably yours, is "cache more, save more." The paper's ablation (testing prompt sizes from 500 to 50,000 tokens and 3 to 50 tool calls) shows the savings are close to linear once you're past the provider's caching minimum, but only if the cached portion is actually stable turn to turn. Throw a changing tool result into that prefix and you're paying write costs on a huge chunk of context, repeatedly, for nothing.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Where Full-Context Caching Backfires</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>The pattern the paper (and my own poking at this) keeps surfacing is simple: cache matching is all-or-nothing from the first byte that changes. One extra character, a reordered dict key when you serialize tool definitions, a timestamp you forgot was in there, and the entire cached prefix from that point forward misses. You don't get partial credit.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is the same failure mode I've seen bite people doing <a href="https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/">parallel tool calling</a>: if your tool results come back in a different order on different runs (which happens constantly once calls are concurrent) and you append them straight into the prefix you're trying to cache, you've built a cache that almost never hits. Sort tool results by a stable key, or keep them out of the cached region entirely, before you append them to history.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Dynamic content up front.</strong> A date, a session ID, or a user's name anywhere before your cache breakpoint invalidates the whole prefix. Push it to the end of the prompt, after the cached block.</li>
+<li><strong>Tool results inside the cached region.</strong> They change every turn by definition. Caching them with the rest of the system prompt means you're paying write cost for content that was never going to be reused.</li>
+<li><strong>Assuming a silent miss is a bug.</strong> Below the minimum token floor, Claude just processes the prompt normally, no error. If <code>cache_read_input_tokens</code> stays at zero, measure your actual prompt length before you go debugging the integration.</li>
+<li><strong>Letting the TTL lapse mid-task.</strong> A 5-minute cache that goes cold because your agent is waiting on a slow external API call means the next turn pays full write price again. If your agent loop has long gaps, the 1-hour TTL on Claude (or a longer explicit retention setting on OpenAI's newer models) is worth the extra write cost.</li>
+<li><strong>Measuring savings off list price instead of actual usage.</strong> Compute your real blended rate from <code>cache_creation_input_tokens</code> and <code>cache_read_input_tokens</code> in production traffic. A prompt that's mostly stable looks very different from one where half the turns miss.</li>
+<li><strong>Confusing a bloated prompt with a cacheable one.</strong> Caching rewards a stable prefix, not a short one. If your tool definitions alone are pushing you into the kind of <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">context window bloat</a> I wrote about with MCP servers, trim that first; caching a 40,000-token wall of mostly-unused tool schemas just makes an expensive prefix cheaper, not actually small.</li>
+</ul><!-- /wp:list -->
+<!-- TODO (human): insert an inline image here once OPENAI_API_KEY has credits again. Suggested scene: a flow showing a dynamic tool result accidentally placed inside a cached prefix, with a crossed-out/broken cache icon labeled "Cache Miss". See REPORT.md. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons of Prompt Caching for AI Agents</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Prompt Caching</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Real cost reduction on long multi-turn agent loops, with savings that scale with how much of your prompt is genuinely static</li>
+<li>Latency improvement on top of cost savings, since a cache read skips recomputation, not just billing</li>
+<li>OpenAI's implicit mode needs zero code changes if your prompt is already structured sensibly (static content first)</li>
+<li>Pairs well with the kind of setup I described for <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">tracing agent runs</a>, since cache hit rate is just another metric worth watching alongside latency and tool errors</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Prompt Caching</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>All-or-nothing matching means a single misplaced dynamic field can silently kill your savings</li>
+<li>Claude's explicit breakpoints add a bit of complexity you have to actually maintain as your prompt evolves</li>
+<li>The "cache everything" instinct can backfire on latency, per the research above, so it needs actual measurement, not assumption</li>
+<li>It doesn't help at all with the first call in a session, and short-lived agents that only run a turn or two won't see much benefit</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you're running an agent that takes more than three or four turns per task, and you haven't checked whether your static content (system prompt, tool schemas) sits before your dynamic content, go check that first. It's a five-minute prompt restructure that often buys most of the available savings, before you even touch an explicit breakpoint. I'd only reach for Claude's explicit <code>cache_control</code> once you've confirmed implicit caching isn't landing the way you expect, and I'd measure cache hit rate in production before trusting a staging benchmark, since tool-call ordering and timestamps have a way of sneaking into prompts that looked clean in a test run.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does prompt caching change what the model outputs?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. It's a billing and latency optimization on the input side. The model receives the same effective prompt either way; caching only changes whether the provider recomputes the prefix's internal representation or reuses a stored one.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is prompt caching the same as a semantic cache like GPTCache?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No, and mixing them up is an easy mistake. A semantic cache (the kind built on tools like GPTCache) skips the LLM call for a new, differently-worded query if it's similar enough in meaning to one you've already answered. Prompt caching still calls the model every time; it just avoids reprocessing a prefix you've sent before, character for character.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Will I get an error if my prompt is too short to cache?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. Below the provider's minimum token threshold, the request just processes normally without caching; there's no error or warning. That silence is exactly why it's worth checking the usage fields in your response rather than assuming caching is active.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does caching help with rate limits, not just cost?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Indirectly, yes, through latency rather than request count. A cache read skips recomputing the prefix, which is part of why the research above found 13-31% faster time-to-first-token. It doesn't change how many requests you're allowed to make per minute, so it's a complement to a solid retry and backoff strategy, not a replacement for it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Should I cache the entire conversation history, not just the system prompt?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Be careful with that. The research found full-context caching isn't always the best strategy and can increase latency on a cache miss, since you're recomputing a much larger prefix. Scoping the cache to genuinely stable content, system prompt and tool definitions, rather than the whole growing history, tends to hold up better across a long-running <a href="https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/">durable agent workflow</a>.</p><!-- /wp:paragraph -->

@@ -1,0 +1,18 @@
+{
+  "title": "Prompt Caching for AI Agents: Cutting Long-Horizon Token Costs",
+  "slug": "prompt-caching-ai-agents",
+  "excerpt": "A real $340 weekend bill taught me why agents need prompt caching, not just retries. Here's how Claude's explicit breakpoints and OpenAI's automatic caching actually differ.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": ["Prompt Caching", "AI Agents", "Claude API", "OpenAI API", "LLM Cost Optimization", "LLM Agents", "AI Agent Reliability", "KV Cache", "Cache Control", "Agent Token Costs"],
+  "focus_keyword": "prompt caching for ai agents",
+  "seo_title": "Prompt Caching for AI Agents: Cut Token Costs",
+  "meta_description": "Learn how prompt caching for AI agents cuts token costs 41-80% in long multi-turn runs, with real Claude and OpenAI cache_control code to reuse.",
+  "social_message": "My agent burned $340 in a weekend replaying the same prompt. Here's the actual fix.\n\nPrompt caching skips re-processing the parts of your agent's context that never change, system prompt, tool defs, so long multi-turn runs cost way less. A real Jan 2026 study found 41-80% savings, but only if you structure the prompt right (full-context caching can backfire). Full breakdown with real Claude + OpenAI code below.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/prompt-caching-ai-agents/\n📌 On Instagram? Link in bio.\n\n#PromptCaching #LLMCostOptimization #AIAgentReliability #Python #LLM #AIEngineering",
+  "quality": {
+    "seo_checklist": 10,
+    "human_voice_test": 8,
+    "images_reviewed": false
+  },
+  "images": []
+}

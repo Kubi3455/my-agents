@@ -2,6 +2,29 @@
   "site": "https://www.firstevolvenextscale.com",
   "posts": [
     {
+      "id": 1692,
+      "date": "2026-10-14",
+      "title": "Vector Database for AI Agent Memory: Qdrant vs Chroma vs pgvector",
+      "slug": "vector-database-ai-agent-memory",
+      "link": "https://www.firstevolvenextscale.com/vector-database-ai-agent-memory/",
+      "categories": [
+        "AI"
+      ],
+      "tags": [
+        "AI Agent Memory",
+        "AI Agent Multi-Tenancy",
+        "Chroma",
+        "pgvector",
+        "Qdrant",
+        "Self-Hosted Vector Database",
+        "Vector Database",
+        "Vector Database Comparison",
+        "Vector Search",
+        "Vector Store Setup"
+      ],
+      "excerpt": "A hands-on comparison of Qdrant, Chroma, and pgvector for storing AI agent memory, including the real errors each one throws when you get a filter or a dimension wrong."
+    },
+    {
       "id": 1686,
       "date": "2026-10-13",
       "title": "Parallel Tool Calling in LLM Agents: When It Helps and When It Breaks",
@@ -1157,6 +1180,11 @@
       "name": "AI"
     },
     {
+      "id": 541,
+      "count": 3,
+      "name": "AI Agent Memory"
+    },
+    {
       "id": 253,
       "count": 3,
       "name": "AI Education"
@@ -1230,11 +1258,6 @@
       "id": 533,
       "count": 2,
       "name": "Agent State Persistence"
-    },
-    {
-      "id": 541,
-      "count": 2,
-      "name": "AI Agent Memory"
     },
     {
       "id": 542,
@@ -1387,6 +1410,11 @@
       "name": "OpenAI API"
     },
     {
+      "id": 575,
+      "count": 2,
+      "name": "pgvector"
+    },
+    {
       "id": 243,
       "count": 2,
       "name": "Prompt Engineering"
@@ -1415,6 +1443,11 @@
       "id": 171,
       "count": 2,
       "name": "Technology"
+    },
+    {
+      "id": 576,
+      "count": 2,
+      "name": "Vector Store Setup"
     },
     {
       "id": 554,
@@ -1530,6 +1563,11 @@
       "id": 324,
       "count": 1,
       "name": "AI Agent Guide"
+    },
+    {
+      "id": 613,
+      "count": 1,
+      "name": "AI Agent Multi-Tenancy"
     },
     {
       "id": 593,
@@ -1920,6 +1958,11 @@
       "id": 393,
       "count": 1,
       "name": "Chiplet Technology"
+    },
+    {
+      "id": 615,
+      "count": 1,
+      "name": "Chroma"
     },
     {
       "id": 584,
@@ -2652,11 +2695,6 @@
       "name": "Parallel Tool Calling"
     },
     {
-      "id": 575,
-      "count": 1,
-      "name": "pgvector"
-    },
-    {
       "id": 581,
       "count": 1,
       "name": "Plan-and-Execute"
@@ -2720,6 +2758,11 @@
       "id": 499,
       "count": 1,
       "name": "Python AI"
+    },
+    {
+      "id": 614,
+      "count": 1,
+      "name": "Qdrant"
     },
     {
       "id": 607,
@@ -2790,6 +2833,11 @@
       "id": 444,
       "count": 1,
       "name": "Self Hosted AI"
+    },
+    {
+      "id": 612,
+      "count": 1,
+      "name": "Self-Hosted Vector Database"
     },
     {
       "id": 565,
@@ -3027,9 +3075,19 @@
       "name": "Vector Cache"
     },
     {
-      "id": 576,
+      "id": 610,
       "count": 1,
-      "name": "Vector Store Setup"
+      "name": "Vector Database"
+    },
+    {
+      "id": 616,
+      "count": 1,
+      "name": "Vector Database Comparison"
+    },
+    {
+      "id": 611,
+      "count": 1,
+      "name": "Vector Search"
     },
     {
       "id": 211,

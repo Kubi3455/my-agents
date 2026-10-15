@@ -1,0 +1,27 @@
+{
+  "post_id": 1694,
+  "status": "draft",
+  "gate_failures": [
+    "seo_checklist 10/12",
+    "images not visually reviewed",
+    "featured image missing or not JPEG (Instagram needs JPEG)",
+    "fewer than 2 inline images"
+  ],
+  "public_link": null,
+  "edit_link": "https://www.firstevolvenextscale.com/wp-admin/post.php?post=1694&action=edit",
+  "preview_link": "https://www.firstevolvenextscale.com/?p=1694",
+  "featured_media": null,
+  "tag_ids": [
+    617,
+    82,
+    550,
+    560,
+    569,
+    456,
+    599,
+    618,
+    619,
+    620
+  ],
+  "rank_math_meta_saved": true
+}
