@@ -15,5 +15,8 @@ Kurulum kontrolünde `OPENAI_API_KEY` **set** görünüyordu (eksik değil), ama
 - OpenAI otomatik caching: resmi dokümandan doğrulandı; canlı `cached_tokens` alanı kredi yüzünden gözlemlenemedi, bu açıkça kod yorumlarında ve sources.md'de belirtildi.
 - arXiv 2601.06007 ("Don't Break the Cache") rakamları (41-80% maliyet, 13-31% TTFT, 500+ oturum) özet sayfasından alındı, tam metne erişilmedi — sources.md'de not edildi.
 
+## Ortam notu: detached HEAD + 2026-10-14 commit'i de push edilmemiş
+Bu oturum `git commit` sonrası `HEAD detached from refs/heads/main` durumundaydı (local `main` dalı hâlâ 2026-10-13'teki origin/main ile aynı noktadaydı; 2026-10-14 commit'i `e1b20de` de hiç push edilmemiş, detached HEAD zincirinde duruyordu). HEAD, local `main`'in doğrudan devamı olduğu (divergence yok, saf fast-forward) için `git checkout -B main` ile `main` dalı güvenle HEAD'e taşındı, sonra her iki commit (10-14 + 10-15) `git push` ile origin'e gönderildi. Veri kaybı yok. Bu, 2026-10-14 girişinde "bu sefer yoktu" denen aynı detached HEAD sorununun geri gelmesi — kalıcı bir ortam davranışı gibi görünüyor, her günün sonunda `git branch --show-current` ile kontrol edip gerekirse düzeltmek faydalı olabilir.
+
 ## Ortam notu
 `pip install -q Pillow` bugün de yanlış Python'a kurdu (bare `pip` → Python 3.13, script'lerin çalıştığı `python3` → 3.11); `python3 -m pip install -q Pillow` ile düzeltildi. Bu, 2026-10-12/13/14 girişlerinde de tekrar eden aynı sorun — HEARTBEAT.md adım 0'a kalıcı düzeltme (`python3 -m pip install` kullanımı) eklenmesi hâlâ insan onayı bekliyor.
