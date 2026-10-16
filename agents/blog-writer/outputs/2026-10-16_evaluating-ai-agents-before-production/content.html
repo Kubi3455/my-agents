@@ -1,0 +1,177 @@
+<!-- wp:paragraph --><p>Last month I shipped a support agent that looked flawless in every demo I ran. Ask it to refund an order and it called the right tool, then replied with a clean confirmation. Three days later, a customer asked why they'd been refunded twice for $42. The agent's final message both times had said exactly the right thing: "Refunded $42.00 for order 4821." Nothing in the output was wrong. The path it took to get there was.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've shipped multi-step tool calls before, you know how this goes. Most teams' process for evaluating AI agents before production stops at a green eval dashboard and a demo recording that looks great. Then something neither of those tested for shows up in production, usually discovered by a support ticket instead of a test. The final answer being correct tells you almost nothing about whether the steps that produced it were safe, efficient, or even sane.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what actually catches this before your users do: grading the path your agent took, not just where it landed. I'll walk through evaluating AI agents before production with real trajectory-matching code, show you a match mode that quietly fails to catch the exact bug it exists to catch, and get into when an LLM-as-judge setup is worth the extra cost over a plain output check.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): featured + inline-1 could not be generated this cycle (OPENAI_API_KEY has no remaining credit, confirmed via a live 429 insufficient_quota/credit_balance_exhausted call). Suggested scene for inline-1 (and a matching featured image): split-panel infographic, left panel "Output Check" showing a chat bubble with a green checkmark next to "Refunded $42.00", right panel "Trajectory Check" showing the same chat bubble but below it two identical "issue_refund" tool-call cards stacked with a red warning icon between them. Labels (verbatim, 1-2 words each): "Output Check", "Trajectory Check", "issue_refund", "Duplicate". Dark navy background per IMAGE_GENERATION.md visual identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Evaluating AI agents before production: why "it worked in the demo" is a trap</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Agents are statistically unreliable across repeated attempts, even with an unchanged prompt and an unchanged input. Run the same refund request ten times and you might get the same clean path nine times and a double tool call once, because the model occasionally decides to "double-check" after a slow tool response. A single passing run tells you that path exists. That's all it tells you.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>It doesn't matter much which control flow your agent runs on, either. A tight ReAct loop and a <a href="https://www.firstevolvenextscale.com/agent-control-flow-patterns/">plan-and-execute setup</a> fail in different shapes, but they both produce a trajectory you haven't looked at yet.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is the part that's easy to skip when you're under deadline pressure: a demo is one sample. Production is thousands of samples a day, and the rare path shows up eventually. The fix isn't "test more demos." It's testing the actual sequence of decisions, not just the sentence at the end of it.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Outcome grading vs. transcript grading, and why you need both</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Anthropic's own <a href="https://anthropic.com/engineering/demystifying-evals-for-ai-agents">engineering guide on agent evals</a> draws a sharper line here than most third-party blog posts do, and it's worth reading straight instead of through a summary. The outcome is the environment's final state, not what the agent claims happened; for a booking agent, the outcome is whether the reservation actually exists in the database, not the confirmation text. Anthropic's guidance is that it's "often better to grade what the agent produced, not the path it took," because deterministic outcome checks are cheap, don't depend on a second LLM's judgment, and are hard to game.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>So why bother with trajectories at all? Because an outcome check alone would have told me my refund agent was working. The order got refunded, the database state was right from the final transaction's point of view. Outcome grading didn't have a slot for "and also, don't do that twice." That's exactly the gap transcript grading fills: once you have outcome tests in place, Anthropic recommends also grading the transcript for things like tool-use behavior, unnecessary steps, or an unsafe call that happened to get overwritten by a later correct one. Transcript and outcome aren't competing approaches. Outcome is your primary signal; transcript is how you catch the stuff outcome checks structurally can't see.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What's actually inside a trajectory</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A transcript (also called a trace or trajectory) is, in Anthropic's own words, "the complete record of a trial, including outputs, tool calls, reasoning, intermediate results, and any other interactions." For an API-based agent, that's the full messages array an eval run produces: the user turn, every assistant message (including ones that are nothing but a tool call), every tool result, and the final reply.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That messages array is also the thing you already have if you've set up any kind of <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">tracing for your agent</a>. Tracing and trajectory evals aren't separate infrastructure projects; the trace is the data, and the evaluator is the grading logic you run against it, either in CI before a release or against sampled production traffic after one. Worth a check here, too: if you haven't dealt with <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">context bloat</a> yet, every intermediate tool result in that array is now also something your evaluator has to read.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Build your test set from real failures, not synthetic ones</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>I'd skip the instinct to wait until you have a few hundred test cases before trusting any of this. Anthropic's guidance is blunt about it: "20-50 simple tasks drawn from real failures is a great start." Teams that wait for a big, comprehensive dataset usually ship nothing, because the dataset never feels done. Start smaller than feels responsible, and grow it from whatever breaks.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The annoying part is where those first cases come from: your own manual checks and whatever a user already complained about. Every production failure is a test case you didn't have to invent. My double-refund incident became test case #1 the same afternoon it was reported.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>One more detail that's easy to get wrong and expensive when you do: isolate every test run from a clean environment. This gets harder once your agent can survive a restart. If you're using something like <a href="https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/">Temporal for crash recovery</a>, double-check that a replay doesn't resurrect state left over from a previous, failed attempt. Shared state between trials doesn't just risk a flaky test, it can quietly inflate your scores. Anthropic's post includes a genuinely surprising real example: in one of their own eval runs, Claude got an unfair advantage on a coding task by reading leftover git history from an earlier trial that hadn't been cleaned up. The agent wasn't cheating on purpose. The setup just handed it information it shouldn't have had.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): inline-2 could not be generated this cycle (no OpenAI credit). Suggested scene: isometric diagram of a messages array as a vertical stack of labeled cards flowing top to bottom: "User", "Assistant (tool_call)", "Tool Result", "Assistant (tool_call)", "Tool Result", "Assistant (final reply)", with a bracket on the right labeled "Trajectory" spanning all cards. Labels verbatim, 1-2 words each: "User", "Tool Call", "Tool Result", "Trajectory". Dark navy background per IMAGE_GENERATION.md visual identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Trajectory matching with AgentEvals</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>For the mechanical side of trajectory grading, LangChain's open-source <a href="https://github.com/langchain-ai/agentevals"><code>agentevals</code> package</a> (<code>pip install agentevals</code>) does the comparison work so you don't hand-roll a diff over tool-call lists. Per the <a href="https://docs.langchain.com/langsmith/trajectory-evals">LangSmith trajectory evals docs</a>, <code>create_trajectory_match_evaluator</code> compares your agent's actual messages against a reference trajectory you wrote by hand for that test case:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from agentevals.trajectory.match import create_trajectory_match_evaluator
+
+evaluator = create_trajectory_match_evaluator(trajectory_match_mode="unordered")
+
+outputs = [
+    {"role": "user", "content": "Refund order 4821"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "lookup_order", "arguments": '{"order_id": "4821"}'}}]},
+    {"role": "tool", "content": "status: paid, amount: 42.00"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "issue_refund", "arguments": '{"order_id": "4821", "amount": 42.00}'}}]},
+    {"role": "tool", "content": "refund issued"},
+    # the bug: the agent calls issue_refund a second time
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "issue_refund", "arguments": '{"order_id": "4821", "amount": 42.00}'}}]},
+    {"role": "tool", "content": "refund issued"},
+    {"role": "assistant", "content": "Refunded $42.00 for order 4821."},
+]
+
+reference_outputs = [
+    {"role": "user", "content": "Refund order 4821"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "lookup_order", "arguments": '{"order_id": "4821"}'}}]},
+    {"role": "tool", "content": "status: paid, amount: 42.00"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "issue_refund", "arguments": '{"order_id": "4821", "amount": 42.00}'}}]},
+    {"role": "tool", "content": "refund issued"},
+    {"role": "assistant", "content": "Refunded $42.00 for order 4821."},
+]
+
+result = evaluator(outputs=outputs, reference_outputs=reference_outputs)
+print(result)
+# {'key': 'trajectory_unordered_match', 'score': False, 'comment': None, 'metadata': None}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Good, that's exactly what I want: <code>score: False</code>, because the actual trajectory has an extra <code>issue_refund</code> call the reference doesn't. <code>unordered</code> mode means it doesn't care that <code>lookup_order</code> and <code>issue_refund</code> happened in a different order than the reference, only that the same set of calls happened. That's the right amount of strictness for a lot of agents, since the model is free to reorder independent steps without that being a real failure.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">The catch: the wrong match mode will wave this straight through</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the part that isn't in any tutorial I read before building this: <code>agentevals</code> also ships a <code>superset</code> mode, which accepts the actual trajectory as valid if it contains the reference trajectory's calls plus possibly more. Swap <code>trajectory_match_mode="unordered"</code> for <code>trajectory_match_mode="superset"</code> in the exact same test above, and the result flips to <code>{'key': 'trajectory_superset_match', 'score': True, ...}</code>. The duplicate refund passes clean, because "superset" only checks that the reference calls are present, and never flags the extra one.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>That shape of bug, two writes landing because of a slow response or a retry, is close cousin to the <a href="https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/">race conditions that show up when tool calls run in parallel</a> against shared state. Same root cause. Different trigger.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I ran both modes against the same duplicate-call trajectory before I trusted either of them, and I'd recommend you do the same with your own agent before picking a mode. <code>superset</code> reads like the "more forgiving, fewer false alarms" option, and for some workflows it is. For anything where an extra tool call is the actual failure mode you're hunting (a second refund, a second email send, a second database write), it's the one mode that structurally can't catch it. Reach for <code>unordered</code> or <code>strict</code> when duplicate or unsafe calls are the thing you're testing for, not <code>superset</code>.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">When there's no single right path: LLM-as-judge</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Exact matching works when you can write down one correct sequence of tool calls. A lot of real tasks don't have one. "Research this topic and summarize it" might legitimately call a search tool twice, or once, or three times, depending on what the first result returns. For those, <code>agentevals</code> provides <code>create_trajectory_llm_as_judge</code>, which scores a trajectory against a rubric instead of a fixed reference:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from agentevals.trajectory.llm import create_trajectory_llm_as_judge, TRAJECTORY_ACCURACY_PROMPT
+
+evaluator = create_trajectory_llm_as_judge(
+    prompt=TRAJECTORY_ACCURACY_PROMPT,   # default rubric, no reference required
+    model="openai:o3-mini",
+    feedback_key="trajectory_accuracy",  # the default feedback_key, shown explicitly here
+)
+
+result = evaluator(outputs=outputs)
+# -> {"key": "trajectory_accuracy", "score": True | False, "comment": "..."}</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The built-in rubric grades whether the trajectory "makes logical sense between steps," shows "clear progression," and is "relatively efficient, though it does not need to be perfectly efficient." There's also a reference-aware variant, <code>TRAJECTORY_ACCURACY_PROMPT_WITH_REFERENCE</code>, for when you have an example of a good path but want to allow reasonable variation instead of an exact match.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Honest caveat: the OpenAI account I had available for this piece was out of credit, so I verified the function signature, the default <code>feedback_key</code>, and the exact wording of the built-in rubric by reading the installed package's source directly rather than from a live model call. The code above is accurate to the library as published; I just didn't get to watch <code>o3-mini</code> grade this specific transcript in front of me, and I'm saying so instead of pretending otherwise.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The honest tradeoff with an LLM judge: it costs a model call per evaluation, it can disagree with itself across runs, and it's a second model forming an opinion about a first model's behavior. I'd default to trajectory matching wherever a reference path is reasonable to write down, and only bring in the judge for the genuinely open-ended tasks where it isn't.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): inline-3 could not be generated this cycle (no OpenAI credit). Suggested scene: two side-by-side comparison panels showing the same duplicate "issue_refund" trajectory scored two ways: left panel "unordered mode" with a red X and the card "score: False", right panel "superset mode" with a green check and the card "score: True", visually showing the same bug caught by one mode and missed by the other. Labels verbatim: "unordered", "superset", "score: False", "score: True". Dark navy background per IMAGE_GENERATION.md visual identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The math nobody wants to hear: why 95% per step still isn't enough</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If each step in your agent's plan succeeds independently 95% of the time, and the task takes eight steps, the odds every single step lands correctly aren't 95%. They're 0.95 raised to the eighth power:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>>>> 0.95 ** 8
+0.6633956609125211</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Sixty-six percent. A per-step success rate that sounds production-ready turns into a one-in-three failure rate the moment you chain eight of them together. And that's the optimistic version of the math, because it assumes each step's success is independent of the ones before it, which it isn't. A wrong result at step two gets fed into step three as if it were correct. Real compounding is usually worse than the clean exponent suggests, not better.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is exactly why checking "did the eval pass once" isn't the same question as "will this hold up over a thousand runs." It's also why pass rate alone, measured once, is the wrong metric for anything multi-step. Anthropic's eval guide distinguishes two ways of running the same task multiple times: pass@k, the odds of at least one success in k attempts, which climbs toward 100% as k grows and suits a one-shot coding tool where you just need one good answer; and pass^k, the odds that all k attempts succeed, which falls toward 0% as k grows and is the number that actually matters for a customer-facing agent that needs to be consistently right, not occasionally right.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Picking the right grading approach</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Approach</th><th>Catches</th><th>Misses</th><th>Needs a reference?</th></tr></thead>
+<tbody>
+<tr><td>Outcome grading</td><td>Wrong final result, wrong environment state</td><td>Unsafe/duplicate steps that still land on a correct outcome</td><td>No (checks real state)</td></tr>
+<tr><td>Trajectory match (exact/unordered)</td><td>Extra, missing, or reordered tool calls</td><td>Valid alternate paths not in your reference</td><td>Yes, one reference per case</td></tr>
+<tr><td>Trajectory match (superset)</td><td>Missing required calls</td><td>Extra/duplicate calls (see above)</td><td>Yes, one reference per case</td></tr>
+<tr><td>LLM-as-judge</td><td>Open-ended tasks with no single right path</td><td>Subtle, judge-specific blind spots; costs a model call</td><td>No (rubric-based)</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:paragraph --><p>If your stack is already OpenAI-centric, their <a href="https://developers.openai.com/api/docs/guides/trace-grading">trace grading</a> workflow covers similar ground from a dashboard instead of code: open a trace under Logs &gt; Traces, create a grader against it, then use "Grade all" to run that grader across many examples at once. It's a reasonable option if you'd rather click through a UI than write Python, though you give up the version-controlled, CI-friendly reference trajectories that <code>agentevals</code> gives you.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of trajectory-level testing</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Catches a correct-output-but-wrong-path bug that outcome checks structurally can't see</li>
+<li>Exact trajectory match is deterministic and cheap to run in CI, no extra model call</li>
+<li>Turns one production incident into a permanent regression test in minutes</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of trajectory-level testing</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list">
+<li>Writing a reference trajectory for every test case is real, ongoing work</li>
+<li>Exact match modes are brittle against legitimate path variation</li>
+<li>The wrong match mode (like <code>superset</code>) can silently stop catching the bug you built the test for</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Picking a lenient match mode by default.</strong> <code>superset</code> feels safer because it has fewer false alarms, but it's the one mode that won't flag an unsafe extra call. Match the mode to the failure you're actually worried about.</li>
+<li><strong>Waiting for a big dataset before testing anything.</strong> 20-50 cases from real failures beats zero cases while you wait to feel ready.</li>
+<li><strong>Letting state leak between test runs.</strong> A leftover file, a warm cache, or old history from a previous trial can hand the agent information it wouldn't have in a clean run, and quietly inflate your scores.</li>
+<li><strong>Reporting a single pass rate for a multi-step agent.</strong> Decide whether you care about pass@k or pass^k before you pick the number you report, they measure different things and can both be true of the same agent.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you only have time for one change this week, it's this: take whatever incident you're still a little embarrassed about, and turn it into a trajectory test case before you fix the underlying bug. You'll have a regression test the moment the fix lands, instead of a vague memory of "we had an issue with refunds once." Start with <code>unordered</code> matching for anything with a reference path you can write down, keep <code>superset</code> out of your safety-critical checks unless you've confirmed it actually catches what you think it catches, and save the LLM judge for the tasks that genuinely don't have one correct answer. None of this needs to be elaborate to be worth more than nothing, which is what most teams are running today.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the difference between a trajectory and a transcript?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Nothing meaningful. Trajectory, transcript, and trace are used interchangeably across Anthropic's and LangChain's documentation to mean the same thing: the full record of a run, including every tool call, tool result, and reasoning step, not just the final reply.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Should I grade outcomes or trajectories?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Outcomes first, when you can define them. Checking the environment's actual final state is cheaper and harder to fool than any transcript check. Add trajectory grading on top for the failure modes outcome checks can't see, like a duplicate or unsafe tool call that happened to still land on the right final state.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need LangSmith to use AgentEvals?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. The evaluator functions in the <code>agentevals</code> package run standalone against any list of messages in your own test runner. LangSmith's dataset and <code>client.evaluate</code> workflow is one way to run them at scale against a stored dataset, but it isn't a requirement for the core matching logic.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How many test cases do I actually need to start?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Fewer than you'd guess. Anthropic's own guidance is that 20-50 cases drawn from real failures is a solid starting point, not the few hundred that feels intuitively "enough." Grow the set from whatever breaks in production rather than trying to anticipate everything up front.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Why did my agent's trajectory test pass when there was an obvious bug?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Check your match mode first. <code>superset</code> matching only confirms the reference calls happened; it won't flag an extra or duplicate call layered on top, which is exactly the shape most dangerous bugs take. <code>unordered</code> or <code>strict</code> modes will catch that same case.</p><!-- /wp:paragraph -->

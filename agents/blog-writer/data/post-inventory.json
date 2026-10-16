@@ -3145,6 +3145,11 @@
       "name": "Accessibility"
     },
     {
+      "id": 620,
+      "count": 0,
+      "name": "Agent Token Costs"
+    },
+    {
       "id": 141,
       "count": 0,
       "name": "AI Productivity Tools"
@@ -3183,6 +3188,11 @@
       "id": 98,
       "count": 0,
       "name": "Blockchain"
+    },
+    {
+      "id": 619,
+      "count": 0,
+      "name": "Cache Control"
     },
     {
       "id": 24,
@@ -3315,6 +3325,11 @@
       "name": "kelebek"
     },
     {
+      "id": 618,
+      "count": 0,
+      "name": "KV Cache"
+    },
+    {
       "id": 573,
       "count": 0,
       "name": "LangGraph Long Term Memory"
@@ -3358,6 +3373,11 @@
       "id": 149,
       "count": 0,
       "name": "Project Management Tools"
+    },
+    {
+      "id": 617,
+      "count": 0,
+      "name": "Prompt Caching"
     },
     {
       "id": 97,

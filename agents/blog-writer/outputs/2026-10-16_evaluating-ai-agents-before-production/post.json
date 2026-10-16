@@ -1,0 +1,29 @@
+{
+  "title": "Evaluating AI Agents Before Production: What Catches Real Failures",
+  "slug": "evaluating-ai-agents-before-production",
+  "excerpt": "A support agent can refund a customer twice and still produce a perfectly correct final answer. Here's how to test the path it took, not just where it landed.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "AI Agent Evaluation",
+    "Agent Trajectory Testing",
+    "Trajectory Evaluation",
+    "LLM As Judge",
+    "AgentEvals",
+    "LangSmith Tracing",
+    "AI Agent Reliability",
+    "AI Agent Testing",
+    "Agent Evals",
+    "Pre-Production Testing"
+  ],
+  "focus_keyword": "evaluating ai agents before production",
+  "seo_title": "Evaluating AI Agents Before Production (2026 Guide)",
+  "meta_description": "A practical guide to evaluating AI agents before production: grade the trajectory, not just the output, with LangChain AgentEvals and Anthropic's eval guide.",
+  "social_message": "My AI agent refunded the same customer twice, and its final answer was still 100% correct.\n\nTurns out a correct final answer tells you nothing about whether the steps behind it were safe. I tested this with LangChain's AgentEvals and found a match mode that completely misses duplicate tool calls.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/evaluating-ai-agents-before-production/\n📌 On Instagram? Link in bio.\n\n#AIAgentEvaluation #AgentTrajectoryTesting #LLMAsJudge #AgentEvals #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 10,
+    "human_voice_test": 8,
+    "images_reviewed": false
+  },
+  "images": []
+}
