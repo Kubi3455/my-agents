@@ -1,0 +1,196 @@
+<!-- wp:paragraph --><p>Last Tuesday, mid-batch, every call to our primary provider started timing out. Not slow. Timing out, hard, after thirty seconds, over and over, for forty minutes straight. The agents didn't crash. They just sat there, retrying a dead endpoint, burning through real customer tickets while doing nothing useful.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've run an agent against one provider in production, you know this feeling. Your code is fine. The thing that's down isn't, and your retry loop just keeps hammering it anyway.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>So here's what I actually changed, and what I learned building model routing for AI agents the hard way: where a hand-rolled circuit breaker is enough, where LiteLLM's Router or OpenRouter's `models` parameter save you real work, and the one mistake that will make your fallback invisible until it's already cost you money.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): featured image could not be generated this cycle (OPENAI_API_KEY has no remaining credit; confirmed via a live chat-completion call that returned 429 insufficient_quota / credit_balance_exhausted — same blocker as 2026-10-15 and 2026-10-16, see MEMORY.md). Suggested scene for the featured image: isometric infographic, left side a code/agent icon with an arrow pointing to a server labeled "Provider A" that has a red crack/broken icon and an X, a second arrow bending down and over to a second server labeled "Provider B" glowing green with a checkmark, a small clock icon near the first arrow labeled "Timeout", and a circuit-breaker icon (simple switch/relay shape) sitting on the bending arrow. Labels verbatim, 1-2 words each: "Provider A", "Provider B", "Timeout", "Fallback". Dark navy background per IMAGE_GENERATION.md visual identity, no code panels. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why model routing for AI agents matters more in 2026</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A year or two ago, most agent projects were calling one provider and treating an API error as an edge case worth a try/except and a log line. That stopped being good enough once agents moved from a demo running for five minutes to a worker running for eight hours. Over a long enough run, "the provider had a bad ten minutes" isn't an edge case. It's Tuesday.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Model routing for AI agents, in the sense this article uses it, is specifically about what happens when your current model or provider stops answering: you need a backup model, a way to detect the failure fast, and a way to switch without the rest of your pipeline noticing. That's a different problem from rate limiting, and it's worth being precise about the difference, because the fix for one makes the other worse if you mix them up.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>I'd also point out this isn't the same problem as surviving a process crash. If your worker dies mid-task, that's a job for <a href="https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/">durable workflow recovery</a>, replaying from a checkpoint. Model routing assumes your process is alive and healthy. The thing that's broken is the thing on the other end of the HTTP call.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">What actually breaks when a provider goes down</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>"The provider is down" covers at least four different failure shapes, and each one wants a different response:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Hard failure</strong> — connection refused or a 5xx, usually fast. Switch immediately.</li>
+<li><strong>Slow failure</strong> — the connection stays open and just doesn't respond. This is the dangerous one, because without a tight timeout your agent looks "fine" while doing nothing.</li>
+<li><strong>Rate limiting:</strong> a 429 on an otherwise healthy provider. Covered in depth in our <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">practical retry strategy for 429 errors</a>; the short version is you retry the same provider with backoff, you don't route away from it.</li>
+<li><strong>Silent degradation:</strong> the provider answers, but slower, or with a model that's been quietly swapped to a cheaper variant under load. Nothing errors. Your p99 latency just creeps up.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>Here's the part that trips people up: a retry loop tuned for rate limits is close to the worst possible response to a hard failure. Backing off and retrying the same dead endpoint for sixty seconds, three times, before giving up is exactly what burned forty minutes of my overnight batch. The fix for "provider down" is routing away, fast. The fix for "provider rate-limited" is waiting and retrying the same provider. Treating them as one problem is how you get my Tuesday.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The DIY option: a circuit breaker in front of your LLM calls</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Before reaching for a proxy or a routing API, it's worth understanding the pattern underneath both of them, because you'll need it even when a library is doing the work for you. A circuit breaker wraps a risky call and tracks failures. Trip enough of them in a row, and the breaker "opens": it stops calling the real function entirely and fails fast instead, for a cooldown window, before cautiously letting one call through to test the water again.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p><a href="https://pypi.org/project/pybreaker/">pybreaker</a> is a small, well-established implementation of exactly this. I installed it and ran this directly rather than trust a blog post's description of the behavior:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import pybreaker
+
+class FakeProviderDown(Exception):
+    pass
+
+breaker = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=5)
+
+def call_primary():
+    raise FakeProviderDown("503 from primary provider")
+
+for i in range(5):
+    try:
+        breaker.call(call_primary)
+    except pybreaker.CircuitBreakerError as e:
+        print(i, "CIRCUIT OPEN ->", str(e)[:80])
+    except FakeProviderDown as e:
+        print(i, "real failure ->", e, "| state:", breaker.current_state)</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>The actual output:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>0 real failure -> 503 from primary provider | state: closed
+1 real failure -> 503 from primary provider | state: closed
+2 CIRCUIT OPEN -> Failures threshold reached, circuit breaker opened
+3 CIRCUIT OPEN -> Timeout not elapsed yet, circuit breaker still open
+4 CIRCUIT OPEN -> Timeout not elapsed yet, circuit breaker still open</code></pre><!-- /wp:code -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Where this breaks: the exception you catch changes</h3><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Look closely at that output again. Calls 0 and 1 raise <code>FakeProviderDown</code>, your real exception. Call 2 trips the breaker and raises <code>pybreaker.CircuitBreakerError</code> instead. Calls 3 and 4 never touch <code>call_primary()</code> at all. If your error-handling code only catches the original exception type (which is the natural thing to write first), it will work fine in testing and then silently stop catching anything the moment the breaker opens in production. I'd wrap the breaker's own error type in the same except block from day one, not after the first on-call page.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>pybreaker's real constructor defaults to <code>fail_max=5, reset_timeout=60</code>, with a <code>success_threshold</code> for how many clean calls it needs before fully closing again. For a single LLM call this is a solid starting point. By itself it isn't model routing. It tells you when to stop calling a broken thing, but you still have to write the part that calls something else instead. That's where the next two options come in.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">LiteLLM Router: fallbacks as config, not application code</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p><a href="https://docs.litellm.ai/docs/proxy/reliability">LiteLLM's proxy</a> treats fallback as a first-class, declarative concept instead of something you hand-roll per call site. You list backup model groups, and the proxy tries them in order when the primary fails:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># litellm proxy config.yaml (verified field names against the official docs)
+litellm_settings:
+  num_retries: 3          # retry the same model this many times first
+  request_timeout: 10     # seconds, before counting as a failure
+  default_fallbacks: ["claude-opus"]   # catch-all for any unmapped model
+
+router_settings:
+  fallbacks: [{"gpt-5-main": ["gpt-5-backup", "claude-sonnet"]}]
+  context_window_fallbacks: [{"gpt-5-main": ["claude-opus"]}]
+  content_policy_fallbacks: [{"gpt-5-main": ["claude-sonnet"]}]
+  allowed_fails: 3     # cooldown threshold per deployment
+  cooldown_time: 30    # seconds a failing deployment is skipped</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Three separate fallback lists matter here, and conflating them is an easy mistake: plain <code>fallbacks</code> handles ordinary errors like rate limits and downtime, <code>context_window_fallbacks</code> only fires when the input is too long for the current model, and <code>content_policy_fallbacks</code> only fires on a moderation rejection. Routing a context-length failure through your downtime fallback chain just wastes a call on a model that will reject the same oversized input for the same reason.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The <code>allowed_fails</code> / <code>cooldown_time</code> pair is the proxy's built-in circuit breaker: once a deployment crosses the failure threshold, it's skipped for the cooldown window across every request, not just the one that triggered it. That's a meaningfully different behavior from the pybreaker example above, where the breaker only protects the one call site it wraps. You also get a <code>disable_fallbacks</code> flag you can set per request or per API key, which matters more than it sounds like once you've got a background job that should fail loudly instead of quietly degrading to a weaker model.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of LiteLLM Router</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>One config file covers every call site; you don't scatter fallback logic across your codebase</li>
+<li>Three distinct fallback types (downtime, context window, content policy) instead of one bucket</li>
+<li>Cooldown is shared across all requests through the proxy, not per call site</li>
+<li>Spend logs record <code>attempted_fallbacks</code> and <code>original_model_group</code>, so you can actually see how often fallback fired</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of LiteLLM Router</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>You're running (and operating) a proxy process, which is one more thing to keep alive</li>
+<li>Config lives outside your application code, which is easy to forget about during an incident unless it's in version control somewhere obvious</li>
+<li>As of Proxy v1.85.0, the <code>mock_testing_fallbacks</code> flags that make it easy to force-test a fallback path in a dev environment were removed from the Proxy itself; they still work if you're calling <code>litellm.Router</code> directly in Python instead</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">OpenRouter: routing at the API layer</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you don't want to run a proxy, <a href="https://openrouter.ai/docs/guides/routing">OpenRouter</a> pushes the same idea into the request body itself. The main mechanism is a <code>models</code> array, a priority-ordered list OpenRouter walks through when the primary model's provider is down:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key="sk-or-...",
+)
+
+response = client.chat.completions.create(
+    model="openai/gpt-5-main",
+    messages=[{"role": "user", "content": "Summarize this ticket."}],
+    extra_body={"models": ["openai/gpt-5-main", "anthropic/claude-sonnet-5"]},
+)
+print(response.model)  # whichever model actually answered</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Billing is based on whichever model ends up in <code>response.model</code>, which is the one thing I'd actually check in your logs after switching this on; I've seen people assume the first entry in the list is what they paid for and never notice when the second one quietly took over for a week.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you're calling OpenRouter through its Anthropic-shaped endpoint specifically, there's a second, stricter parameter called <code>fallbacks</code> instead of <code>models</code>. It caps out at exactly 3 entries, each entry accepts nothing but a <code>model</code> field (trying to override <code>max_tokens</code> or similar per fallback attempt gets you a 400), and sending both <code>models</code> and <code>fallbacks</code> on the same request is also a 400. Worth knowing before you copy a <code>models</code> array example into Anthropic-endpoint code and wonder why it's rejected.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of OpenRouter</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>No proxy to run; fallback is a field on the request you're already making</li>
+<li>Triggers on a wide default set: context length errors, moderation flags, rate limits, downtime</li>
+<li>Access to models from multiple labs through one API key and billing relationship</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of OpenRouter</h3><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li>You're routing through a third party between you and the model provider, which is its own dependency to go down</li>
+<li>The stricter <code>fallbacks</code> parameter (3 entries, model-only) only applies on the Anthropic-shaped endpoint, which is an easy detail to miss if you're used to the plain <code>models</code> array</li>
+<li>No cooldown/circuit-breaker concept of its own; it retries the fallback list per request, so a provider that's fully down still gets hit on every single call until it recovers</li>
+</ul><!-- /wp:list -->
+
+<!-- TODO (human): inline image could not be generated this cycle (no OpenAI credit, same blocker as above). Suggested scene: three-column comparison infographic. Column 1 "Circuit Breaker" with a simple relay/switch icon and a small clock. Column 2 "LiteLLM Router" with a server/proxy box icon between two model icons. Column 3 "OpenRouter" with a single cloud icon fanning out to three small model icons. Labels verbatim, 1-2 words each: "Circuit Breaker", "LiteLLM Router", "OpenRouter". Dark navy background per IMAGE_GENERATION.md visual identity, no code panels, no fabricated extra labels. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Circuit breaker vs. LiteLLM Router vs. OpenRouter</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table>
+<thead><tr><th>Approach</th><th>Where it runs</th><th>Cooldown behavior</th><th>Best fit</th></tr></thead>
+<tbody>
+<tr><td>Hand-rolled circuit breaker (pybreaker)</td><td>In-process, per call site</td><td>Yes, per breaker instance</td><td>One provider, one language, full control over behavior</td></tr>
+<tr><td>LiteLLM Router / Proxy</td><td>Separate proxy process</td><td>Yes, shared across all requests (<code>allowed_fails</code>/<code>cooldown_time</code>)</td><td>Multiple services calling multiple providers, need a single policy</td></tr>
+<tr><td>OpenRouter</td><td>Hosted, request-level</td><td>No built-in cooldown; retries fallback list every call</td><td>Already using OpenRouter for multi-provider access, want fallback with zero new infra</td></tr>
+</tbody>
+</table></figure><!-- /wp:table -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">The trap nobody mentions: a silent fallback changes your agent's behavior</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Here's the thing that actually worries me about all three options above: every one of them is designed to make the switch invisible. That's the point, and it's also the trap. The moment your agent falls back from a frontier model to a smaller or different one, you've changed the thing actually making decisions, and nothing in your pipeline necessarily tells you that happened.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Two specific ways this bites you. First, structured output and tool-calling behavior aren't identical across providers, even when the API shape looks similar on paper. A tool schema that Claude handles one way and a GPT model handles slightly differently can produce a response that parses fine but means something subtly different; this is the same class of problem covered in our look at <a href="https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/">Claude Agent SDK vs. OpenAI Agents SDK</a>, and it gets worse, not better, when the switch between them happens automatically mid-run instead of at deploy time. Second, if your agent makes <a href="https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/">parallel tool calls</a>, a fallback model that handles concurrency differently can change the order or grouping of those calls in ways your downstream code wasn't written to expect.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The only real fix is visibility, not prevention. You can't stop providers from going down. You can make sure you'd notice when your agent quietly started running on a different model for an hour. That means <a href="https://www.firstevolvenextscale.com/agent-tracing-observability/">tracing which model actually answered each call</a>, not just whether the call succeeded, and alerting on a sustained shift, not a single fallback event.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common pitfalls</h2><!-- /wp:heading -->
+
+<!-- wp:list --><ul class="wp-block-list">
+<li><strong>Routing rate limits like outages.</strong> A 429 on a healthy provider wants backoff-and-retry on the same provider, not a switch. Mixing the two policies is how a brief rate limit turns into an unnecessary model swap, or a real outage turns into forty minutes of useless retries.</li>
+<li><strong>Catching only the original exception type.</strong> Once a circuit breaker opens, you get its error, not the provider's. Test the open-circuit path specifically, not just the first failure.</li>
+<li><strong>Stacking too many fallbacks.</strong> Each hop adds its own timeout before failing over. A three-model chain with a 10-second timeout per hop can mean a 30-second wait before anything useful happens. Keep the chain short, or lower the per-hop timeout as you go deeper into it.</li>
+<li><strong>No cost or quality floor.</strong> If your fallback chain can land on a much cheaper or weaker model with no limit, a long outage can quietly shift your entire workload onto a model that was never meant to carry it, with a bill and an error rate to match.</li>
+<li><strong>Forgetting the Anthropic-endpoint limits on OpenRouter.</strong> The <code>fallbacks</code> parameter there caps at 3 entries and rejects per-attempt overrides; code copied from a <code>models</code>-array example will 400.</li>
+</ul><!-- /wp:list -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you're running a single agent against a single provider in anything other than a weekend project, I'd start with a circuit breaker around the call, today, before you need it. It's the smallest piece, and it teaches you the failure modes you'll need to reason about no matter which routing layer you add later. Once you've got more than one service calling more than one model, move that policy into LiteLLM's Router so it isn't duplicated and drifting across your codebase. Reach for OpenRouter when you'd rather not run a proxy at all and you're fine with its cooldown being per-request instead of shared.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Whatever you pick, wire in the tracing before the outage, not during it. The failure you can't see is the one that costs you the most.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is model routing the same thing as retrying on a rate limit?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. Rate-limit retries wait and try the same provider again, which we cover separately in our 429 retry strategy guide. Model routing switches to a different model or provider because the original one is down, not just busy.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need LiteLLM or OpenRouter if I only call one provider?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Not necessarily. A circuit breaker plus a single manually chosen backup model is often enough until you're running several services against several providers at once. Add a routing layer when the policy itself starts getting duplicated.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Will a fallback model break my structured outputs or tool calls?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>It can. Different providers don't handle tool schemas and structured output identically, so a fallback can produce a response that parses correctly but means something subtly different. Trace which model actually answered, not just whether the call succeeded.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">How many fallback models should be in my chain?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Keep it short. Each hop adds its own timeout before giving up, so a long chain can mean a long wait before anything useful happens. Two or three well-chosen backups beat a long list of untested ones.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the actual difference between LiteLLM's three fallback types?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p><code>fallbacks</code> handles ordinary errors like downtime and rate limits, <code>context_window_fallbacks</code> only fires when the input is too long for the current model, and <code>content_policy_fallbacks</code> only fires on a moderation rejection. Routing the wrong failure through the wrong list wastes a call on a model that will fail for the same reason.</p><!-- /wp:paragraph -->

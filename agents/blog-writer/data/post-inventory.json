@@ -3145,9 +3145,34 @@
       "name": "Accessibility"
     },
     {
+      "id": 627,
+      "count": 0,
+      "name": "Agent Evals"
+    },
+    {
       "id": 620,
       "count": 0,
       "name": "Agent Token Costs"
+    },
+    {
+      "id": 622,
+      "count": 0,
+      "name": "Agent Trajectory Testing"
+    },
+    {
+      "id": 625,
+      "count": 0,
+      "name": "AgentEvals"
+    },
+    {
+      "id": 621,
+      "count": 0,
+      "name": "AI Agent Evaluation"
+    },
+    {
+      "id": 626,
+      "count": 0,
+      "name": "AI Agent Testing"
     },
     {
       "id": 141,
@@ -3335,6 +3360,11 @@
       "name": "LangGraph Long Term Memory"
     },
     {
+      "id": 624,
+      "count": 0,
+      "name": "LLM As Judge"
+    },
+    {
       "id": 212,
       "count": 0,
       "name": "Mobile UI"
@@ -3348,6 +3378,11 @@
       "id": 188,
       "count": 0,
       "name": "Motion Design"
+    },
+    {
+      "id": 628,
+      "count": 0,
+      "name": "Pre-Production Testing"
     },
     {
       "id": 140,
@@ -3443,6 +3478,11 @@
       "id": 41,
       "count": 0,
       "name": "testtt"
+    },
+    {
+      "id": 623,
+      "count": 0,
+      "name": "Trajectory Evaluation"
     },
     {
       "id": 183,

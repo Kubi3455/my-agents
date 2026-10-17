@@ -1,0 +1,25 @@
+{
+  "title": "Model Routing for AI Agents: Surviving a Provider Outage",
+  "slug": "model-routing-ai-agents",
+  "excerpt": "A dead provider doesn't announce itself; it just stops answering, and a retry loop built for rate limits can make things worse, not better. Here's where a circuit breaker, LiteLLM, and OpenRouter each actually fit.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "Model Routing",
+    "LLM Provider Fallback",
+    "Circuit Breaker Pattern",
+    "LiteLLM",
+    "OpenRouter",
+    "Pybreaker",
+    "AI Agent Reliability",
+    "AI Agents",
+    "LLM API Reliability",
+    "Provider Outage Handling"
+  ],
+  "focus_keyword": "model routing for ai agents",
+  "seo_title": "Model Routing for AI Agents: Fallback Guide",
+  "meta_description": "A practical guide to model routing for AI agents: real circuit-breaker code, LiteLLM Router fallback config, and OpenRouter's routing API, tested live.",
+  "social_message": "A provider outage once burned 40 minutes of my agent's retries on a dead endpoint.\n\nI rebuilt the fallback path three ways: a real circuit breaker (tested live), LiteLLM Router's fallback config, and OpenRouter's routing API. One mistake makes the switch invisible until it costs you.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/model-routing-ai-agents/\n📌 On Instagram? Link in bio.\n\n#ModelRouting #CircuitBreakerPattern #LLMProviderFallback #LiteLLM #AIAgents #AIEngineering",
+  "quality": {"seo_checklist": 10, "human_voice_test": 8, "images_reviewed": false},
+  "images": []
+}

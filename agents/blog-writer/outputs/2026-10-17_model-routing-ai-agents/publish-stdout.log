@@ -1,0 +1,28 @@
+{
+  "post_id": 1698,
+  "status": "draft",
+  "gate_failures": [
+    "seo_checklist 10/12",
+    "images not visually reviewed",
+    "featured image missing or not JPEG (Instagram needs JPEG)",
+    "fewer than 2 inline images"
+  ],
+  "public_link": null,
+  "edit_link": "https://www.firstevolvenextscale.com/wp-admin/post.php?post=1698&action=edit",
+  "preview_link": "https://www.firstevolvenextscale.com/?p=1698",
+  "featured_media": null,
+  "tag_ids": [
+    599,
+    82,
+    629,
+    630,
+    631,
+    632,
+    633,
+    634,
+    635,
+    636
+  ],
+  "rank_math_meta_saved": true
+}
+GATE FAILED -> kept as draft: seo_checklist 10/12; images not visually reviewed; featured image missing or not JPEG (Instagram needs JPEG); fewer than 2 inline images
