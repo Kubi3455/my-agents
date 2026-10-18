@@ -1,0 +1,163 @@
+<!-- wp:paragraph --><p>Last month I let an agent write and run its own cleanup script for a batch of scraped PDFs, and its idea of "cleaning up" was a <code>shutil.rmtree</code> on a path two levels higher than the one I'd actually pointed it at. Nothing of mine was lost, because the whole thing was running inside a throwaway VM I'd already treated as disposable. Lucky, this time. It was still a sharp reminder of why AI agent code execution sandboxes exist: code-execution tools don't ask permission before they act, and a model that's 95% right the other 5% of the time is still running on your infrastructure.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>If you've wired a <code>run_python</code> or <code>execute_shell</code> tool into an agent and just let it rip against the host machine, you already know this pain. Maybe it hasn't bitten you yet. It will, usually the day a prompt injection slips in through a scraped web page or a tool result the model trusted a little too much.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Here's what I actually dug into: how <strong>AI agent code execution sandboxes</strong> from E2B, Modal, and Daytona isolate that code, where the isolation boundaries genuinely differ, and which one I'd reach for depending on what you're building.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Why AI Agent Code Execution Sandboxes Matter Right Now</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>The threat model here isn't exotic. An agent with a code-execution tool can, in principle, read your environment variables, write to disk, open a socket, or shell out to anything the runtime allows. Most of the time that's fine, because most of the time the model is doing exactly what you asked. Usually it is. The problem shows up when it isn't: a hallucinated "fix," or a prompt injection buried in a document the agent was asked to summarize, that quietly tells it to exfiltrate credentials or open a reverse shell.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>This is a different failure mode from the control-flow bugs I've written about before, where an agent loops on the wrong branch or never reaches a terminal state. A stuck <a href="https://www.firstevolvenextscale.com/agent-control-flow-patterns/">ReAct-style control loop</a> wastes tokens. Unsandboxed code execution can touch things outside the conversation entirely, which is a much worse class of problem.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>So the question isn't "should I sandbox," it's "how much isolation does this workload actually need, and what does that cost me in latency and complexity." That's where E2B, Modal, and Daytona start looking genuinely different from each other, instead of three logos on the same comparison chart.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Firecracker, gVisor, and Plain Containers: What the Boundary Actually Buys You</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>A standard Docker container shares the host kernel. That's fine for isolating one well-behaved service from another, but a shared kernel means a container-escape bug in the kernel itself is a sandbox-escape bug for you too. For agent-generated code, where you can't fully predict what's going to run, that's a thinner wall than I'd want between a model and my infrastructure.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Firecracker, which AWS open-sourced and E2B builds on, takes a different approach: every sandbox gets its own guest kernel inside a hardware-virtualized microVM. It's a real VM boundary, just a very lightweight one. gVisor, which Modal uses by default, does something else again: it's a kernel written in user-space Go that sits between your process and the real Linux kernel, intercepting every syscall before it reaches the host. <a href="https://fly.io/learn/firecracker-vs-gvisor.md">Fly.io's own comparison of the two</a> frames it well: different isolation strategies, defending against different failure modes, at different performance cost. No second kernel, but also no syscall gets through unexamined.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Neither is strictly "more secure" in the abstract. Firecracker's hardware virtualization defends against a wider class of kernel bugs because there's a full extra kernel in the way. gVisor's syscall interception is lighter-weight and (in Modal's case) is also the only runtime that supports attaching a GPU, since hardware passthrough and a separate guest kernel don't mix well. Pick based on what you're running, not on which word sounds scarier.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): inline-1 image not generated — OPENAI_API_KEY credit exhausted (429 insufficient_quota, 4th consecutive day, see MEMORY.md). Suggested scene: a code-editor window on the left feeding into a locked box icon (the sandbox boundary); inside the box, a small "guest kernel" layer stacked under the running code to represent Firecracker, next to a second path showing a syscall arrow being intercepted by a thin gatekeeper layer to represent gVisor; a crossed-out arrow from the box to the host machine outside it. Labeled "Sandbox", "Guest Kernel", "Syscall Filter". Dark navy background per IMAGE_GENERATION.md identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">E2B: Firecracker microVMs, Built for Agents From the Start</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>E2B's own <a href="https://github.com/e2b-dev/infra">open-source runtime repo</a> describes the setup bluntly: one Firecracker microVM per sandbox, each in its own cgroup and network namespace, with a per-sandbox nftables firewall that can allow- or deny-list outbound domains. That last part matters more than it sounds. A sandbox that can run arbitrary code but can't reach arbitrary hosts closes off a whole category of exfiltration attempts before they start.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The SDK is deliberately thin:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># pip install e2b
+from e2b import Sandbox
+
+sandbox = Sandbox.create(timeout=120)  # seconds; needs E2B_API_KEY in env
+result = sandbox.commands.run("python3 -c \"print(2 + 2)\"")
+print(result.stdout)  # "4"
+sandbox.kill()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Per E2B's own lifecycle documentation, a sandbox can run up to an hour on the Hobby plan or 24 hours on Pro before it's forcibly killed, and you can pause one mid-run to preserve filesystem and memory state, then resume it later instead of starting cold. That pause/resume model is a genuinely nice fit for anything built around <a href="https://www.firstevolvenextscale.com/durable-agent-workflows-temporal/">durable agent workflows</a> that need to survive a crash without replaying every tool call from scratch.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Where E2B gets interesting is self-hosting: the same infra repo ships a single-machine deployment called Embed, so you're not locked into their cloud if compliance requires the sandbox to live inside your own network. I wouldn't call that a weekend project to set up, but it's a real option, not a marketing line.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Modal: Pick gVisor or a Full VM, Then Decide if You Need a GPU</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Modal's <a href="https://modal.com/docs/guide/sandbox">Sandbox API</a> makes the isolation choice explicit instead of hiding it behind a single default. You pass <code>runtime="gvisor"</code> for the lighter, syscall-intercepted container, or <code>runtime="vm"</code> when you need a full Linux kernel, say, because the agent's code needs to run Docker inside the sandbox or mount a FUSE filesystem. Leave it unset and Modal picks for you.</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code># pip install modal
+import modal
+
+app = modal.App.lookup("agent-sandboxes", create_if_missing=True)
+sb = modal.Sandbox.create(
+    app=app,
+    image=modal.Image.debian_slim().pip_install("pandas"),
+    runtime="gvisor",
+    timeout=10 * 60,       # max sandbox lifetime, seconds
+    idle_timeout=60,       # kill if nothing's running for 60s
+)
+proc = sb.exec("python", "-c", "import pandas; print(pandas.__version__)", timeout=5)
+print(proc.stdout.read())
+sb.terminate()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Default lifetime is five minutes. That's it. It pushes you to think about timeouts up front instead of discovering them in production. You can stretch that to 24 hours with the <code>timeout</code> parameter, and past that Modal's own docs point you at a filesystem snapshot-and-restore pattern rather than one giant sandbox. "Idle" has a specific meaning here too: a sandbox with a command still running, stdin still open, or an active tunnel connection doesn't count as idle, so <code>idle_timeout</code> won't kill it out from under a long-running job.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The GPU angle is the real differentiator against E2B. If your agent's tool call needs to run a model locally inside the sandbox, Modal's gVisor-runtime GPUs are the straightforward path; that's just not a use case E2B or Daytona are built around.</p><!-- /wp:paragraph -->
+
+<!-- TODO (human): inline-2 image not generated — OPENAI_API_KEY credit exhausted (429 insufficient_quota, 4th consecutive day, see MEMORY.md). Suggested scene: two side-by-side server/sandbox icon panels labeled "gVisor" and "VM", with a small GPU chip icon attached only to the "gVisor" panel and a crossed-out GPU chip next to the "VM" panel; a clock icon showing "5 min" above both with an arrow stretching it to "24h". Dark navy background per IMAGE_GENERATION.md identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Daytona: The Open-Source Story Got Complicated</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Daytona describes itself as a "secure and elastic infrastructure runtime for AI-generated code execution and agent workflows," and for a while it was the open-source name people pointed to when they wanted something they could audit and self-host without a vendor in the loop. That changed in 2026. Checking <a href="https://github.com/daytonaio/daytona">the repo directly</a> instead of trusting a vendor-comparison post: it's now archived and read-only on GitHub, with the README stating that core development has moved to a private codebase and the public repo will receive no further updates, fixes, or releases.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>The existing code is still there, still licensed for you to fork and run, "without support or warranty," in the repo's own words. That's a real option if you're already committed to it. Fair enough. I just wouldn't start a new project on a dependency whose maintainer has publicly stopped maintaining it, however generous the license is on the way out.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Honestly, that's the main reason Daytona drops to third place in this comparison right now, not the isolation technology itself. The frozen repo doesn't document its own sandbox internals with anywhere near the detail E2B's and Modal's docs do, which made it the one tool here I couldn't verify a specific implementation claim for.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Choosing an AI Agent Code Execution Sandbox: Side-by-Side</h2><!-- /wp:heading -->
+
+<!-- wp:table --><figure class="wp-block-table"><table><thead><tr><th>Dimension</th><th>E2B</th><th>Modal</th><th>Daytona</th></tr></thead><tbody><tr><td>Isolation</td><td>Firecracker microVM per sandbox</td><td>gVisor (default) or full VM, your choice</td><td>Not documented in current (frozen) docs</td></tr><tr><td>Default / max lifetime</td><td>No published default; max 1h (Hobby) / 24h (Pro)</td><td>5 min default; max 24h, then snapshot + restore</td><td>Not published</td></tr><tr><td>GPU support</td><td>Not the focus</td><td>Yes, on gVisor runtime only</td><td>Not the focus</td></tr><tr><td>Self-hosting</td><td>Yes, via the open "Embed" single-machine mode</td><td>No, Modal-hosted only</td><td>Yes, from the frozen public repo</td></tr><tr><td>Active maintenance</td><td>Active, open infra repo</td><td>Active, closed-source platform</td><td>Core dev moved private; public repo archived</td></tr></tbody></table></figure><!-- /wp:table -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Running the Same Tool Call Two Different Ways</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>Say your agent has a generic <code>run_code</code> tool that an LLM calls through a <a href="https://www.firstevolvenextscale.com/claude-agent-sdk-vs-openai-agents-sdk/">tool-calling agent framework</a>. On E2B, the whole round trip is create, run, read, kill:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>from e2b import Sandbox
+
+def run_code_tool(code: str) -> str:
+    sandbox = Sandbox.create(timeout=30)
+    try:
+        result = sandbox.commands.run(f"python3 -c {code!r}")
+        return result.stdout or result.stderr
+    finally:
+        sandbox.kill()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>On Modal, you're spinning up (or reusing) an <code>App</code> first, which is a small extra ceremony but gives you Modal's image-building and dependency-pinning machinery for free:</p><!-- /wp:paragraph -->
+
+<!-- wp:code --><pre class="wp-block-code"><code>import modal
+
+app = modal.App.lookup("run-code-tool", create_if_missing=True)
+
+def run_code_tool(code: str) -> str:
+    sb = modal.Sandbox.create(app=app, timeout=30)
+    try:
+        proc = sb.exec("python3", "-c", code, timeout=25)
+        return proc.stdout.read() or proc.stderr.read()
+    finally:
+        sb.terminate()</code></pre><!-- /wp:code -->
+
+<!-- wp:paragraph --><p>Neither snippet is production-ready. Not even close. You'd want to handle partial output on timeout, and if the tool is called in parallel by the same agent, the same race conditions that show up in <a href="https://www.firstevolvenextscale.com/parallel-tool-calling-llm-agents/">parallel tool calling</a> apply here too: two sandboxes writing to a shared result store need the same locking discipline, sandbox or no sandbox.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Pros and Cons, Honestly</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of E2B</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>Firecracker isolation per sandbox, documented in the open infra repo rather than taken on faith</li><li>Pause and resume preserves full state, useful for long-running or crash-prone agent loops</li><li>Self-hostable if you need the sandbox inside your own network</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of E2B</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>No published default timeout number, only maximums; you have to set one explicitly</li><li>No native GPU story if your tool call needs to run a model</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Modal</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>Explicit choice between gVisor and full-VM isolation per sandbox</li><li>GPU-backed sandboxes, which neither of the other two is built around</li><li>Clear idle-vs-active distinction for timeouts, so a long tool call won't get killed mid-run</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Modal</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>Hosted only; there's no self-hosted Modal if that's a hard requirement</li><li>Default 5-minute lifetime means you'll hit a timeout the first time you forget to set one</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Pros of Daytona (For Now)</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>Existing code is still public and licensed to fork and run</li><li>If you're already deployed on it, nothing breaks today</li></ul><!-- /wp:list -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Cons of Daytona (For Now)</h3><!-- /wp:heading -->
+<!-- wp:list --><ul class="wp-block-list"><li>Public repo archived; core development moved to a private codebase</li><li>No further fixes or releases on the open version, by its own README</li><li>Sandbox internals aren't documented in the same depth as E2B's or Modal's</li></ul><!-- /wp:list -->
+
+<!-- TODO (human): inline-3 image not generated — OPENAI_API_KEY credit exhausted (429 insufficient_quota, 4th consecutive day, see MEMORY.md). Suggested scene: three small repository/package icons labeled "E2B", "Modal", "Daytona" in a row; the "Daytona" icon has a padlock/archive-box overlay and a greyed-out color to show it is frozen, while "E2B" and "Modal" stay bright with a small green "active" dot. Dark navy background per IMAGE_GENERATION.md identity. -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Common Pitfalls When Sandboxing Agent Code</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>The pitfall I see most often isn't picking the wrong vendor. It's picking a good sandbox and then undermining it. A few that are easy to miss:</p><!-- /wp:paragraph -->
+
+<!-- wp:list --><ul class="wp-block-list"><li><strong>Leaving outbound network wide open.</strong> Isolation stops the code from touching your host; it doesn't stop the code from phoning home to an attacker's server unless you also restrict egress, the way E2B's nftables allow-list does.</li><li><strong>No timeout, or a timeout that's too generous.</strong> A runaway loop in agent-generated code is common enough that "it'll probably finish" isn't a real plan. Set the tightest timeout the task can tolerate.</li><li><strong>Reusing one long-lived sandbox across unrelated tool calls.</strong> State leaks between calls that should be independent, and one bad call can poison the next one's environment.</li><li><strong>Trusting sandbox stdout as safe to show the user unfiltered.</strong> The sandbox protects your infrastructure, not the end user reading the output. A sandboxed process can still print something it shouldn't.</li></ul><!-- /wp:list -->
+
+<!-- wp:paragraph --><p>None of these are exotic. They're just easy to skip when the sandbox itself is already doing the hard part, and it's tempting to assume the hard part was the whole job. Two more worth planning for up front: sandbox creation is just an API call under the hood, and it can throttle you the same way covered in this <a href="https://www.firstevolvenextscale.com/ai-agent-rate-limits/">retry strategy for 429 errors</a>, so don't skip backoff just because the call happens to say "sandbox" instead of "chat completion." And a verbose stdout from a long-running script adds up fast if you're feeding it straight back into the model's context, which is exactly the <a href="https://www.firstevolvenextscale.com/mcp-context-bloat/">context bloat problem</a> in a different costume.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">Conclusion</h2><!-- /wp:heading -->
+
+<!-- wp:paragraph --><p>If you're building a general-purpose coding agent and don't need GPUs, I'd start with E2B. The Firecracker-per-sandbox model is the clearest documented isolation story of the three, and pause/resume fits naturally with agents that need to survive a crash mid-task. If your tool calls need to run a model inside the sandbox itself, Modal's gVisor-with-GPU option is the one built for that, and the explicit runtime choice is a nice bit of honesty most platforms don't bother with.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Skip Daytona for anything new right now, not because the isolation is bad, but because you can't verify what it is anymore from the one source that would normally tell you. A frozen repo is a fine thing to keep running if you're already on it. It's a strange foundation to build on from scratch in 2026.</p><!-- /wp:paragraph -->
+
+<!-- wp:paragraph --><p>Whichever you pick, set a real timeout and an egress allow-list before you ship, not after the first incident teaches you why they exist.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading --><h2 class="wp-block-heading">FAQ</h2><!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Is a Docker container enough to sandbox AI agent code execution?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>For low-risk, fully trusted code, often yes. But a standard container shares the host kernel, so a kernel-level escape affects you too. For agent-generated code you can't fully predict, a microVM (E2B's Firecracker) or a syscall-intercepting runtime (Modal's gVisor) closes that gap.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">What's the real difference between Firecracker and gVisor?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Firecracker gives each sandbox its own guest kernel inside a hardware-virtualized microVM. gVisor is a userspace kernel that intercepts syscalls from a normal container without a second kernel underneath. Both raise the bar above a plain container; they just raise it in different places.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Can I self-host E2B or Modal instead of using their cloud?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>E2B, yes: its open infra repo ships a single-machine self-hosted mode called Embed, on top of full enterprise deployments. Modal is hosted-only; there's no self-hosted version of the Modal platform itself.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Does Daytona still work if I'm already using it?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>The public code still runs and is licensed to use, but the GitHub repo is archived and its own README says there will be no further updates or fixes on the open version, since core development moved to a private codebase.</p><!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Do I need a GPU sandbox for most agent code-execution tools?</h3><!-- /wp:heading -->
+<!-- wp:paragraph --><p>No. Most tool calls, data parsing, API calls, small scripts, don't need one. Reach for a GPU sandbox only when the tool call itself needs to run a model, which is the specific case Modal's gVisor-runtime GPUs are built for.</p><!-- /wp:paragraph -->

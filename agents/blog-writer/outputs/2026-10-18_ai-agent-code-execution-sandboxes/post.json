@@ -1,0 +1,25 @@
+{
+  "title": "AI Agent Code Execution Sandboxes: E2B vs Modal vs Daytona in 2026",
+  "slug": "ai-agent-code-execution-sandboxes",
+  "excerpt": "An agent's code-execution tool can do real damage if a prompt injection gets lucky. Here's how E2B, Modal, and Daytona actually isolate that risk, and which one I'd pick.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "AI Agent Code Execution Sandboxes",
+    "E2B",
+    "Modal",
+    "Daytona",
+    "Firecracker MicroVM",
+    "AI Agent Security",
+    "Prompt Injection",
+    "AI Agent Tools",
+    "Sandbox Isolation",
+    "gVisor"
+  ],
+  "focus_keyword": "ai agent code execution sandboxes",
+  "seo_title": "AI Agent Code Execution Sandboxes: E2B vs Modal vs Daytona",
+  "meta_description": "Compare E2B, Modal, and Daytona for AI agent code execution sandboxes: real isolation tech, timeouts, self-hosting, and which one to pick in 2026.",
+  "social_message": "I let an agent run shutil.rmtree on the wrong folder. Here is what actually stops that.\n\nE2B, Modal, and Daytona all sandbox AI agent code execution, but the isolation tech is not the same: Firecracker microVMs vs gVisor vs a frozen open-source repo. I checked the official docs and source code myself.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/ai-agent-code-execution-sandboxes/\n📌 On Instagram? Link in bio.\n\n#AIAgentSandboxes #CodeExecutionSecurity #PromptInjection #E2B #AIAgents #AIEngineering",
+  "quality": {"seo_checklist": 10, "human_voice_test": 8, "images_reviewed": false},
+  "images": []
+}

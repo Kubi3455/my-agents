@@ -3220,6 +3220,11 @@
       "name": "Cache Control"
     },
     {
+      "id": 631,
+      "count": 0,
+      "name": "Circuit Breaker Pattern"
+    },
+    {
       "id": 24,
       "count": 0,
       "name": "d"
@@ -3360,14 +3365,34 @@
       "name": "LangGraph Long Term Memory"
     },
     {
+      "id": 632,
+      "count": 0,
+      "name": "LiteLLM"
+    },
+    {
+      "id": 635,
+      "count": 0,
+      "name": "LLM API Reliability"
+    },
+    {
       "id": 624,
       "count": 0,
       "name": "LLM As Judge"
     },
     {
+      "id": 630,
+      "count": 0,
+      "name": "LLM Provider Fallback"
+    },
+    {
       "id": 212,
       "count": 0,
       "name": "Mobile UI"
+    },
+    {
+      "id": 629,
+      "count": 0,
+      "name": "Model Routing"
     },
     {
       "id": 205,
@@ -3378,6 +3403,11 @@
       "id": 188,
       "count": 0,
       "name": "Motion Design"
+    },
+    {
+      "id": 633,
+      "count": 0,
+      "name": "OpenRouter"
     },
     {
       "id": 628,
@@ -3413,6 +3443,16 @@
       "id": 617,
       "count": 0,
       "name": "Prompt Caching"
+    },
+    {
+      "id": 636,
+      "count": 0,
+      "name": "Provider Outage Handling"
+    },
+    {
+      "id": 634,
+      "count": 0,
+      "name": "Pybreaker"
     },
     {
       "id": 97,
