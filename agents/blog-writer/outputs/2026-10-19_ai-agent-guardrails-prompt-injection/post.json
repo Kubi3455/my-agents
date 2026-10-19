@@ -1,0 +1,29 @@
+{
+  "title": "AI Agent Guardrails for Prompt Injection: A Practical Playbook",
+  "slug": "ai-agent-guardrails-prompt-injection",
+  "excerpt": "A support agent of mine almost leaked customer data because of text buried in a fetched ticket. Here's what actually stops that, in tested code.",
+  "content_file": "content.html",
+  "category": "AI",
+  "tags": [
+    "AI Agent Guardrails",
+    "Prompt Injection",
+    "Indirect Prompt Injection",
+    "OpenAI Agents SDK",
+    "Claude Agent SDK",
+    "Tool Guardrails",
+    "AI Agent Security",
+    "OWASP LLM Top 10",
+    "NeMo Guardrails",
+    "Agent Tool Calling"
+  ],
+  "focus_keyword": "ai agent guardrails for prompt injection",
+  "seo_title": "AI Agent Guardrails for Prompt Injection: 2026 Playbook",
+  "meta_description": "Learn how AI agent guardrails for prompt injection actually work, with tested OpenAI Agents SDK and Claude code examples for tool-calling agents.",
+  "social_message": "An agent of mine almost leaked customer data because a ticket body told it to.\n\nThis post covers how indirect prompt injection actually reaches your tool-calling agent, and the exact OpenAI Agents SDK guardrail code (tested, not theoretical) that stops it before the model ever sees the poisoned content.\n\nRead the full guide 👉 https://www.firstevolvenextscale.com/ai-agent-guardrails-prompt-injection/\n📌 On Instagram? Link in bio.\n\n#AIAgentGuardrails #PromptInjection #ToolGuardrails #OpenAIAgentsSDK #AIAgents #AIEngineering",
+  "quality": {
+    "seo_checklist": 10,
+    "human_voice_test": 8,
+    "images_reviewed": false
+  },
+  "images": []
+}
